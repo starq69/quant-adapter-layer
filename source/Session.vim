@@ -25,8 +25,8 @@ set nosplitbelow
 set nosplitright
 wincmd t
 set winheight=1 winwidth=1
-exe '1resize ' . ((&lines * 28 + 24) / 48)
-exe '2resize ' . ((&lines * 16 + 24) / 48)
+exe '1resize ' . ((&lines * 22 + 24) / 48)
+exe '2resize ' . ((&lines * 22 + 24) / 48)
 argglobal
 setlocal fdm=manual
 setlocal fde=0
@@ -37,7 +37,7 @@ setlocal fml=1
 setlocal fdn=20
 setlocal fen
 silent! normal! zE
-let s:l = 33 - ((21 * winheight(0) + 14) / 28)
+let s:l = 33 - ((16 * winheight(0) + 11) / 22)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
@@ -55,16 +55,16 @@ setlocal fml=1
 setlocal fdn=20
 setlocal fen
 silent! normal! zE
-let s:l = 25 - ((15 * winheight(0) + 8) / 16)
+let s:l = 20 - ((16 * winheight(0) + 11) / 22)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
-25
-normal! 0
+20
+normal! 05|
 wincmd w
 2wincmd w
-exe '1resize ' . ((&lines * 28 + 24) / 48)
-exe '2resize ' . ((&lines * 16 + 24) / 48)
+exe '1resize ' . ((&lines * 22 + 24) / 48)
+exe '2resize ' . ((&lines * 22 + 24) / 48)
 tabnext 1
 if exists('s:wipebuf')
   silent exe 'bwipe ' . s:wipebuf
