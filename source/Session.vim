@@ -8,25 +8,23 @@ if expand('%') == '' && !&modified && line('$') <= 1 && getline(1) == ''
   let s:wipebuf = bufnr('%')
 endif
 set shortmess=aoO
-badd +1 start2.py
-badd +14 stub_adapter.py
-badd +0 __init__.py
-badd +10 importFromURI.py
+badd +6 start2.py
+badd +1 stub_adapter.py
+badd +1 __init__.py
+badd +40 importFromURI.py
+badd +4 baseadapter.py
+badd +20 test_adapter.py
+badd +5 eoddata.py
+badd +1 Session.vim
 argglobal
 silent! argdel *
 argadd start2.py
 edit start2.py
 set splitbelow splitright
-wincmd _ | wincmd |
-split
-1wincmd k
-wincmd w
 set nosplitbelow
 set nosplitright
 wincmd t
 set winheight=1 winwidth=1
-exe '1resize ' . ((&lines * 22 + 24) / 48)
-exe '2resize ' . ((&lines * 22 + 24) / 48)
 argglobal
 setlocal fdm=manual
 setlocal fde=0
@@ -37,34 +35,12 @@ setlocal fml=1
 setlocal fdn=20
 setlocal fen
 silent! normal! zE
-let s:l = 33 - ((16 * winheight(0) + 11) / 22)
+let s:l = 32 - ((28 * winheight(0) + 22) / 45)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
-33
-normal! 0
-wincmd w
-argglobal
-edit stub_adapter.py
-setlocal fdm=manual
-setlocal fde=0
-setlocal fmr={{{,}}}
-setlocal fdi=#
-setlocal fdl=0
-setlocal fml=1
-setlocal fdn=20
-setlocal fen
-silent! normal! zE
-let s:l = 20 - ((16 * winheight(0) + 11) / 22)
-if s:l < 1 | let s:l = 1 | endif
-exe s:l
-normal! zt
-20
-normal! 05|
-wincmd w
-2wincmd w
-exe '1resize ' . ((&lines * 22 + 24) / 48)
-exe '2resize ' . ((&lines * 22 + 24) / 48)
+32
+normal! 06|
 tabnext 1
 if exists('s:wipebuf')
   silent exe 'bwipe ' . s:wipebuf

@@ -36,3 +36,5 @@ def importModule(uri, absl=False):
             return (imp.load_source(mname, no_ext + '.py'))
         except:
             pass
+
+    log.warning('missing module')
