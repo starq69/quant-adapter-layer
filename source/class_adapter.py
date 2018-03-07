@@ -11,7 +11,7 @@ class BaseAdapter():
         '''
         attributi base mandatory
         '''
-        self.name = 'my base adapter'
+        self.name = 'my base class adapter'
         self.DSRoot = env
 
     def dataSources(self):
