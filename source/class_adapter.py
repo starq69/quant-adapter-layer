@@ -21,7 +21,6 @@ class BaseAdapter():
 
 def start(env):
 
-    #env = '/home/starq/REP/DATA/FINANCE/Quotazioni/'
     try:
         this.implemented = BaseAdapter(env)
         return True
