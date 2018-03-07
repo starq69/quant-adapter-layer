@@ -30,17 +30,18 @@ def load_adapter(conf, module_name):
 
 if __name__ == '__main__':
 
-    conf = 'TBD'
+    conf = '/home/starq/REP/DATA/FINANCE/Quotazioni/'
+
     logfmt='%(asctime)s [%(name)-12s] [%(levelname)-5.5s]  %(message)s'
     logging.basicConfig(level=logging.DEBUG, format=logfmt) 
     log = logging.getLogger(__name__)
 
     try:
-        test_adapter = load_adapter(conf, 'test_adapter')
+        adapter = load_adapter(conf, 'module_adapter')
 
-        log.info('test adapter ready')
+        log.info('adapter <' + adapter.name + '> ready')
 
-        log.info(test_adapter.dataSources())
+        log.info(adapter.dataSources())
 
     except AttributeError as e:
         log.error('error: {}'.format(e))

@@ -21,7 +21,7 @@ def load_adapter(conf, module_name):
         pass
 
 if __name__ == '__main__':                                                                                
-    conf = 'TBD'                                                                                          
+    conf = '/home/starq/REP/DATA/FINANCE/Quotazioni/'                                                                                          
     logfmt='%(asctime)s [%(name)-12s] [%(levelname)-5.5s]  %(message)s'  
     logging.basicConfig(level=logging.DEBUG, format=logfmt)                                   
     log = logging.getLogger(__name__)
