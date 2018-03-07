@@ -27,7 +27,7 @@ if __name__ == '__main__':
     log = logging.getLogger(__name__)
                                     
     try:                                                                                                  
-        adapter = load_adapter(conf, 'baseadapter-2')                                                 
+        adapter = load_adapter(conf, 'class_adapter')                                                 
 
         log.info('adapter <' + adapter.name + '> ready')
 
