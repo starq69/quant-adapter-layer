@@ -8,18 +8,17 @@ if expand('%') == '' && !&modified && line('$') <= 1 && getline(1) == ''
   let s:wipebuf = bufnr('%')
 endif
 set shortmess=aoO
-badd +6 start2.py
-badd +1 stub_adapter.py
+badd +1 start2.py
 badd +1 __init__.py
 badd +40 importFromURI.py
-badd +4 baseadapter.py
+badd +1 baseadapter.py
 badd +20 test_adapter.py
-badd +5 eoddata.py
-badd +1 Session.vim
+badd +1 eoddata.py
+badd +0 eoddata-adapter.py
 argglobal
 silent! argdel *
 argadd start2.py
-edit start2.py
+edit test_adapter.py
 set splitbelow splitright
 set nosplitbelow
 set nosplitright
@@ -35,12 +34,12 @@ setlocal fml=1
 setlocal fdn=20
 setlocal fen
 silent! normal! zE
-let s:l = 32 - ((28 * winheight(0) + 22) / 45)
+let s:l = 29 - ((28 * winheight(0) + 30) / 60)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
-32
-normal! 06|
+29
+normal! 0
 tabnext 1
 if exists('s:wipebuf')
   silent exe 'bwipe ' . s:wipebuf

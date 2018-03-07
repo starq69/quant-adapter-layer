@@ -2,14 +2,15 @@
 # -*- coding: iso-8859-15 -*-
 
 import os, sys, logging
-
-from importFromURI import importModule 
-
 import click
+from importFromURI import importModule 
 '''
 @click.command()
-@click.option('--adapter', default='test_adapter', help='adapter to register.')
+@click.argument('adapter')
+def start(module_name):
+    pass
 '''
+
 def load_adapter(conf, module_name):
     '''
     base_dir   = os.path.dirname(os.path.realpath(__file__))
