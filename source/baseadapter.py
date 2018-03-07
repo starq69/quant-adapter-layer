@@ -11,5 +11,7 @@ class BaseAdapter():
         '''
         #this.description = config.get_attr(__name__, 'description')
 
+        log = logging.getLogger(__name__)
 
+        log.info('initialized')
 
