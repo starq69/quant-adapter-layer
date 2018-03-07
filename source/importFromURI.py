@@ -25,14 +25,14 @@ def importModule(uri, absl=False):
             
     if os.path.exists(no_ext + '.pyc'):
         try:
-            log.debug('compiled')
+            log.debug('compiled imported')
             return (imp.load_compiled(mname, no_ext + '.pyc'))
         except:
             pass
 
     if os.path.exists(no_ext + '.py'):
         try:
-            log.debug('source')
+            log.debug('source imported')
             return (imp.load_source(mname, no_ext + '.py'))
         except:
             pass
