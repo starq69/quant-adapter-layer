@@ -8,9 +8,7 @@ this = sys.modules[__name__]
 class BaseAdapter():
 
     def __init__(self, env):
-        '''
-        attributi base mandatory
-        '''
+
         self.name = 'my base class adapter'
         self.DSRoot = env
 
@@ -25,4 +23,5 @@ def start(env):
         this.implemented = BaseAdapter(env)
         return True
     except:
-        pass
+        # log
+        return False 
