@@ -43,10 +43,9 @@ if __name__ == '__main__':
 
         log.info('adapter <' + adapter.name + '> ready')
 
-        log.info(adapter.dataSources())
-
-        adapter.register_resource_mapper(conf + '/data/')
-        adapter.load_resource_mappers(conf + '/data/')
+        adpath = adapter.register_provider('eoddata.com')
+        #adapter.register_resource_mapper(conf + '/data/')
+        adapter.load_resource_mappers(adpath)
 
     except AttributeError as e:
         log.error('error: {}'.format(e))

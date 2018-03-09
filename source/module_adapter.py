@@ -3,7 +3,7 @@
 '''
 quant2018 eoddata adapter
 '''
-import os, sys, logging
+import os, errno, sys, logging
 import fnmatch
 import json   
 import collections 
@@ -24,7 +24,7 @@ def init(conf):
     this.name = 'my base module adapter'
     this.DSRoot = conf
     this.resource_mapper_template['name'] = 'undef'
-    this.resource_mapper_template['format'] = ['@SYM', '_date', '_open', 'high', 'low', 'close', 'vol']
+    this.resource_mapper_template['format'] = ['@SYM', 'date', 'open', 'high', 'low', 'close', 'vol']
     this.resource_mapper_template['sep'] = ','
     this.resource_mapper_template['filename'] = ['@MKT', '_', '@TIMESTAMP', '.txt']
     this.resource_mapper_template['timeframe'] = 'd'
@@ -44,33 +44,50 @@ def ingest(keys=[], resource=None):
     pass
 
 
-def register_provider(name, resource_mapper, default=False):
+def register_provider(name, resource_mapper=this.resource_mapper_template, default=False):
 
-    path = this.DSRoot + '/' + name
+    this.log.info('register_provider {}'.format(name))
+    path = this.DSRoot + '/data/' + name + '/'
     try:
-        if os.scandir(path):
-            log.info('register_provider : {}'.format(path))
-    except FileNotFoundError as e:
-        log.error(str(e))
+        os.makedirs(path)
+    except OSError as e:
+        if e.errno != errno.EEXIST:
+            log.error(e)
+            return False
+            #raise
+        else:
+            log.warning('provider {} already registered on path {}'.format(name, path))
 
+    register_resource_mapper(path, resource_mapper)
+    return path
 
 
 def register_resource_mapper(path, dict_mapper=this.resource_mapper_template):
 
     this.log.info('register_resource_mapper on path {}'.format(path))
-
-    with open(path + 'resource_mapper.json', 'w') as f:
-            json.dump(dict_mapper, f, indent=4) 
+    try:
+        with open(path + 'resource_mapper.json', 'w') as f:
+                json.dump(dict_mapper, f, indent=4) 
+        return True
+    except OSError as e:
+        log.error(e)
+        return False
 
 
 def load_resource_mappers(path):
-    #resource_mappers = [f.name for f in os.scandir(path) if (f.is_file(follow_symlinks=False) and f.name.endswith('.json')) ]
-    resource_mappers = [f.name for f in os.scandir(path) if (f.is_file(follow_symlinks=False) and fnmatch.fnmatch(f.name, '*.json'))]
-    for f in resource_mappers:
-        with open (f) as json_mapper:
-            resource_mapper = json.load(json_mapper)
-        log.info('resource_mapper (json.load) : {}'.format(resource_mapper))
 
+    log.info('load_resource_mappers on path {}'.format(path))
+    try:
+        resource_mappers = [f.path for f in os.scandir(path) if (f.is_file(follow_symlinks=False) and fnmatch.fnmatch(f.name, '*.json'))]
+        for f in resource_mappers:
+            with open (f) as json_mapper:
+                resource_mapper = json.load(json_mapper)
+            log.info('resource_mapper (json.load) : {}'.format(resource_mapper))
+    #OSError (https://docs.python.org/3/library/os.html#os.DirEntry)
+    # (https://stackoverflow.com/questions/273192/how-can-i-create-a-directory-if-it-does-not-exist) 
+    except OSError as e: 
+        log.error(e)
+        return False
 
 
 def select(query):
