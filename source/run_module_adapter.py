@@ -29,7 +29,7 @@ if __name__ == '__main__':
     parent_dir = os.path.split(base_dir)[0]
 
     #conf = '/home/starq/REP/DATA/FINANCE/Quotazioni/'
-    conf = parent_dir
+    conf = parent_dir 
 
     logfmt='%(asctime)s [%(name)-12s] [%(levelname)-5.5s]  %(message)s'
     logging.basicConfig(level=logging.DEBUG, format=logfmt) 
@@ -46,6 +46,7 @@ if __name__ == '__main__':
         log.info(adapter.dataSources())
 
         adapter.register_resource_mapper(conf + '/data/')
+        adapter.load_resource_mappers(conf + '/data/')
 
     except AttributeError as e:
         log.error('error: {}'.format(e))
