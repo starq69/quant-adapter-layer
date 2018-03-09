@@ -12,16 +12,8 @@ this = sys.modules[__name__]
 
 this.log = None
 this.resource_mapper_template = collections.OrderedDict() 
-'''
-this.resource_mapper_template = {
-                                'name'      : 'undef',
-                                'format'    : ['@SYM', '<date>', '<open>', '<high>', '<low>', '<close>', '<vol>'],
-                                'sep'       : ',',
-                                'filename'  : ['@MKT', '_', '@TIMESTAMP', '.txt'],
-                                'timeframe' : 'd',
-                                }
-'''
-def init(config):
+
+def init(conf):
 
     '''logging.basicConfig(level=logging.DEBUG, format='%(message)s')
     '''
@@ -30,9 +22,9 @@ def init(config):
     '''this.DSRoot = config.get_attr(__name__, 'DSRoot')
     '''
     this.name = 'my base module adapter'
-    this.DSRoot = config
+    this.DSRoot = conf
     this.resource_mapper_template['name'] = 'undef'
-    this.resource_mapper_template['format'] = ['@SYM', 'date', 'open', 'high', 'low', 'close', 'vol']
+    this.resource_mapper_template['format'] = ['@SYM', '_date', '_open', 'high', 'low', 'close', 'vol']
     this.resource_mapper_template['sep'] = ','
     this.resource_mapper_template['filename'] = ['@MKT', '_', '@TIMESTAMP', '.txt']
     this.resource_mapper_template['timeframe'] = 'd'
@@ -53,7 +45,14 @@ def ingest(keys=[], resource=None):
 
 
 def register_provider(name, resource_mapper, default=False):
-    pass
+
+    path = this.DSRoot + '/' + name
+    try:
+        if os.scandir(path):
+            log.info('register_provider : {}'.format(path))
+    except FileNotFoundError as e:
+        log.error(str(e))
+
 
 
 def register_resource_mapper(path, dict_mapper=this.resource_mapper_template):
@@ -70,7 +69,7 @@ def load_resource_mappers(path):
     for f in resource_mappers:
         with open (f) as json_mapper:
             resource_mapper = json.load(json_mapper)
-        log.info('resource_mapper : {}'.format(resource_mapper))
+        log.info('resource_mapper (json.load) : {}'.format(resource_mapper))
 
 
 
