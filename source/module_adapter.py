@@ -12,6 +12,7 @@ this = sys.modules[__name__]
 
 this.log = None
 this.resource_mapper_template = collections.OrderedDict() 
+this.provider_path = None
 
 def init(conf):
 
@@ -57,9 +58,14 @@ def register_provider(name, resource_mapper=this.resource_mapper_template, defau
             #raise
         else:
             log.warning('provider {} already registered on path {}'.format(name, path))
+            '''
+            load_resource_mappers(path)
+            return get_resource_mappers(path)
+            '''
 
     register_resource_mapper(path, resource_mapper)
-    return path
+    this.provider_path = path
+    return this.provider_path
 
 
 def register_resource_mapper(path, dict_mapper=this.resource_mapper_template):

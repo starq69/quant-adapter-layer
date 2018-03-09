@@ -35,17 +35,13 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG, format=logfmt) 
     log = logging.getLogger(__name__)
 
-    log.info('parent_dir = {}'.format(parent_dir))
-
-
     try:
         adapter = load_adapter(conf, 'module_adapter')
 
         log.info('adapter <' + adapter.name + '> ready')
 
-        adpath = adapter.register_provider('eoddata.com')
-        #adapter.register_resource_mapper(conf + '/data/')
-        adapter.load_resource_mappers(adpath)
+        eoddata_path = adapter.register_provider('eoddata.com')
+        adapter.load_resource_mappers(eoddata_path)
 
     except AttributeError as e:
         log.error('error: {}'.format(e))
