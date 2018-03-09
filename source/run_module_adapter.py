@@ -12,11 +12,6 @@ def start(module_name):
 '''
 
 def load_adapter(conf, module_name):
-    '''
-    base_dir   = os.path.dirname(os.path.realpath(__file__))
-    parent_dir = os.path.split(base_dir)[0]
-    root_dir = base_dir
-    '''
 
     adapter = importModule(module_name)
     
@@ -30,11 +25,18 @@ def load_adapter(conf, module_name):
 
 if __name__ == '__main__':
 
-    conf = '/home/starq/REP/DATA/FINANCE/Quotazioni/'
+    base_dir   = os.path.dirname(os.path.realpath(__file__))
+    parent_dir = os.path.split(base_dir)[0]
+
+    #conf = '/home/starq/REP/DATA/FINANCE/Quotazioni/'
+    conf = parent_dir
 
     logfmt='%(asctime)s [%(name)-12s] [%(levelname)-5.5s]  %(message)s'
     logging.basicConfig(level=logging.DEBUG, format=logfmt) 
     log = logging.getLogger(__name__)
+
+    log.info('parent_dir = {}'.format(parent_dir))
+
 
     try:
         adapter = load_adapter(conf, 'module_adapter')
@@ -42,6 +44,8 @@ if __name__ == '__main__':
         log.info('adapter <' + adapter.name + '> ready')
 
         log.info(adapter.dataSources())
+
+        adapter.register_resource_mapper(conf + '/data/')
 
     except AttributeError as e:
         log.error('error: {}'.format(e))
