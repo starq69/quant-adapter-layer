@@ -13,8 +13,9 @@ def start(module_name):
 
 def load_adapter(conf, module_name):
 
+#    if not this.adapter:
     adapter = importModule(module_name)
-    
+
     try: 
         adapter.init(conf)
 
@@ -39,10 +40,16 @@ if __name__ == '__main__':
         adapter = load_adapter(conf, 'module_adapter')
 
         log.info('adapter <' + adapter.name + '> ready')
+        
+        ###@starq69:
+        #
+        # qui farei una ds=adapter.connect(..), + esplicativa della register_provider() :
+        # eoddata = adapter.connect('eoddata.com')
+        # questa in pratica è una class factory che restituisce
+        # un'istanza con la quale invocare select() sullo specifico provider/dataset
 
         eoddata_path = adapter.register_provider('eoddata.com')
         adapter.load_resource_mappers(eoddata_path)
-
     except AttributeError as e:
         log.error('error: {}'.format(e))
 

@@ -14,11 +14,16 @@ this.log = None
 this.resource_mapper_template = collections.OrderedDict() 
 this.provider_path = None
 
+this.started=False
+
 def init(conf):
+
+#    if not this.started:
 
     '''logging.basicConfig(level=logging.DEBUG, format='%(message)s')
     '''
     this.log = logging.getLogger(__name__)
+#    this.log('...starting adapter')
 
     '''this.DSRoot = config.get_attr(__name__, 'DSRoot')
     '''
@@ -29,6 +34,10 @@ def init(conf):
     this.resource_mapper_template['sep'] = ','
     this.resource_mapper_template['filename'] = ['@MKT', '_', '@TIMESTAMP', '.txt']
     this.resource_mapper_template['timeframe'] = 'd'
+
+#    this.started=True
+#    else:
+#    this.log.info('...adapter already started')
 
 
 def dataSources():
@@ -46,7 +55,9 @@ def ingest(keys=[], resource=None):
 
 
 def register_provider(name, resource_mapper=this.resource_mapper_template, default=False):
-
+###@starq69
+#def connect(...) # class factory
+#
     this.log.info('register_provider {}'.format(name))
     path = this.DSRoot + '/data/' + name + '/'
     try:
@@ -62,11 +73,19 @@ def register_provider(name, resource_mapper=this.resource_mapper_template, defau
             load_resource_mappers(path)
             return get_resource_mappers(path)
             '''
+    ###@starq69
+    #connection = factory(..)
+    #return connection
 
     register_resource_mapper(path, resource_mapper)
     this.provider_path = path
     return this.provider_path
 
+###@starq69
+# class factory (..):
+#   self.resource_mapper
+#   def select(..)
+#   def ingest(..)
 
 def register_resource_mapper(path, dict_mapper=this.resource_mapper_template):
 
