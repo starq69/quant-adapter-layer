@@ -48,6 +48,12 @@ if __name__ == '__main__':
         # questa in pratica è una class factory che restituisce
         # un'istanza con la quale invocare select() sullo specifico provider/dataset
 
+        appdata = adapter.connect('eoddata.com')
+        appdata.select('my query')
+        appdata.ingest('datastore')
+
+        exit()
+
         eoddata_path = adapter.register_provider('eoddata.com')
         adapter.load_resource_mappers(eoddata_path)
     except AttributeError as e:

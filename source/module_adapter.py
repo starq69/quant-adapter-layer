@@ -39,19 +39,40 @@ def init(conf):
 #    else:
 #    this.log.info('...adapter already started')
 
+#class Connection():
+#    def __init__(self, conf):
+#        self.root = conf
+#    def select(self, query): 
+#        this.log.info('select({})'.format(query)) 
+#    def ingest(self, datastore): 
+#        this.log.info('ingest({})'.format(datastore)) 
 
-def dataSources():
-    '''
-    es.
-    DSRoot subfolders list
-    '''
-    subfolders = [f.name for f in os.scandir(this.DSRoot) if f.is_dir() ] 
+def connect(name, resource_mapper=this.resource_mapper_template, default=False):
 
-    return subfolders
+    class Connection():
+        def __init__(self, conf):
+            self.root = conf
+        def select(self, query):
+            this.log.info('select({})'.format(query))
+        def ingest(self, datastore):
+            this.log.info('ingest({})'.format(datastore))
 
+    this.log.info('connect({})'.format(name))
+    data_source= this.DSRoot + '/data/' + name + '/'
+    ###@starq69: crea datasource se non esiste (valutare anche altre modalità)
+    try:
+        os.makedirs(data_source)
+    except OSError as e:
+        if e.errno != errno.EEXIST:
+            log.error(e)
+            return False
+        else:
+            log.info('datasource founded on path {}'.format(data_source))
 
-def ingest(keys=[], resource=None):
-    pass
+    register_resource_mapper(data_source, resource_mapper)
+
+    return Connection(data_source)
+
 
 
 def register_provider(name, resource_mapper=this.resource_mapper_template, default=False):
@@ -126,3 +147,18 @@ def select(query):
         'NO data found'
     '''
     pass
+
+
+def dataSources():
+    '''
+    es.
+    DSRoot subfolders list
+    '''
+    subfolders = [f.name for f in os.scandir(this.DSRoot) if f.is_dir() ] 
+
+    return subfolders
+
+
+def ingest(keys=[], resource=None):
+    pass
+
