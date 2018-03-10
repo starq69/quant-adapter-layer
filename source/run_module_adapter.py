@@ -37,7 +37,7 @@ if __name__ == '__main__':
     log = logging.getLogger(__name__)
 
     try:
-        adapter = load_adapter(conf, 'module_adapter')
+        adapter = load_adapter(conf, 'module_adapter')  # 'ohlcv_adapter'
 
         log.info('adapter <' + adapter.name + '> ready')
         
