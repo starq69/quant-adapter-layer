@@ -71,10 +71,11 @@ def connect(name, resource_mapper=this.resource_mapper_template, default=False):
             self.log = logging.getLogger(__name__)
             self._ds = data_source
             self._resource_mappers = resource_mappers
-            log.debug('Connection._resource_mappers : {}'.format(self._resource_mappers))
+            self.log.debug('Connection._resource_mappers : {}'.format(self._resource_mappers))
 
         def select(self, query):
-            this.log.info('select({})'.format(query))
+            self.log.debug('select({})'.format(query))
+            self.log.debug('connection._resource_mappers = {}'.format(self._resource_mappers))
             '''
             if query in cache:
                 return cache(query)
@@ -84,9 +85,55 @@ def connect(name, resource_mapper=this.resource_mapper_template, default=False):
             else:
                 'NO data found'
             '''
-        def ingest(self, datastore):
-            # ingest(keys=[], resource=None):
-            this.log.info('ingest({})'.format(datastore))
+        def ingest(self, resource=None):
+
+            self.log.debug('self._ds = {}'.format(self._ds))
+            if resource is not None:
+                try:
+                    if os.path.isdir(resource):
+                        files = [f.path for f in os.scandir(resource) if (f.is_file()) ]
+                        self.log.debug('files to ingest : {}'.format(files))
+                        
+                    elif os.path.is_file(resource):
+                        self.log.debug('file to ingest : {}'.format(resource))
+
+                except OSError as e:
+                    pass
+            else:
+                try:
+                    # scan files in default ingest directory 
+                    _files = [f.name for f in os.scandir(self._ds + 'raw/') if (f.is_file(follow_symlinks=False) and fnmatch.fnmatch(f.name, '*.txt'))] # parametrizzare fnmatch
+                    if _files:
+                        self.log.debug('files to ingest : {}'.format(_files))
+                        for k, fn in enumerate(_files):
+                            # genera regex da resource_mappers
+                            rec = re.compile(self._resource_mappers[0]['ingest']['regex'])
+                            # applica regex su fn
+                            match = rec.match(fn)
+                            if match is not None:   # match
+                                self.log.debug('<{}> is a VALID ingest file'.format(fn))
+                                _market = _symbol = _timeframe = _timestamp = None
+                                groups = self._resource_mappers[0]['ingest']['gmatch'] # TBD : loop over _resource_mappers[]
+                                for j, g in enumerate(groups):
+                                    #self.log.debug('g[{}] = {}'.format(j, g))
+                                    if g == 'MKT':
+                                        _market = match.group(j+1)
+                                    elif g == 'timestamp':
+                                        _timestamp = match.group(j+1)
+
+                                self.log.debug('_market = {}'.format(_market))
+                                self.log.debug('_timestamp = {}'.format(_timestamp))
+                                    
+                            else:
+                                self.log.debug('<{}> is a NOT VALID ingest file'.format(fn))
+                            pass
+                    else:
+                        self.log.debug('NO files to ingest')
+                    pass
+                except FileNotFoundError as e:
+                    self.log.error(e)
+
+
 
     this.log.info('connect({})'.format(name))
     '''
@@ -113,7 +160,7 @@ def connect(name, resource_mapper=this.resource_mapper_template, default=False):
     # o : value={relative_path, parent}
     #
 
-    try:
+    try:    # scan all subfolders
         if (os.path.isdir(data_source_root)):
             for (relative_path, subfolders, f) in os.walk(data_source_root):
                 log.debug('dirpath : {}'.format(relative_path))

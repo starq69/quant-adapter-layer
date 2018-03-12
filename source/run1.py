@@ -30,7 +30,7 @@ if __name__ == '__main__':
         #adapter.load_resource_mappers(eoddata_path)
 
         appdata.select('my query')
-        appdata.ingest('datastore')
+        appdata.ingest()
 
     except AttributeError as e:
         log.error('error: {}'.format(e))
