@@ -52,20 +52,22 @@ def load_resource_mappers(path):
                     except Exception as e:
                         log.exception('exception (UNMANAGED) : {}'.format(e))  #log.error('exception : ', exc_info=True
             else:
-                log.warning('unknown resource mapper : {}'.format(f))
+                log.warning('invalid resource mapper file name : {}'.format(f))
 
     except Exception as e:
         log.error('exception (UNMANAGED) : {}'.format(e))
 
 
     log.debug('_local_resource_mappers loaded = {}'.format(len(_local_resource_mappers)))
+    return _local_resource_mappers
 
 
 def connect(name, resource_mapper=this.resource_mapper_template, default=False):
 
     class Connection():
-        def __init__(self, conf):
-            self._root = conf
+        def __init__(self, data_source, resource_mappers):
+            self._ds = data_source
+            self._resource_mappers = resource_mappers
         def select(self, query):
             this.log.info('select({})'.format(query))
             '''
@@ -90,7 +92,7 @@ def connect(name, resource_mapper=this.resource_mapper_template, default=False):
         if (os.path.isdir(data_source)):
             log.info('datasource <{}> found'.format(name))    
             log.info('segue load_resource_mapper({})'.format(data_source))
-            load_resource_mappers(data_source)
+            _local_resource_mappers = load_resource_mappers(data_source)
         else:
             log.warning('datasource <{}> NOT found!'.format(name))
             return None
@@ -99,27 +101,8 @@ def connect(name, resource_mapper=this.resource_mapper_template, default=False):
         return None
 
 
-    '''
-    ###@starq69: crea datasource se non esiste (valutare anche altre modalità)
-    #
-    # n.b. qui si verifica l'integrità della risorsa 'data_source'
-    # si caricano gli indici e la cache
-    # i riferimenti così ottenuti possono essere passati al costrutture di Connection() sulla return
-    try:
-        os.makedirs(data_source)
-    except OSError as e:
-        if e.errno != errno.EEXIST:
-            log.error(e)
-            return False
-        else:
-            log.info('datasource founded on path {}'.format(data_source))
-
-    register_resource_mapper(data_source, resource_mapper)
-    '''
-    return Connection(data_source)
-
-    # si crea la connessione al data_source
-    # return Connection(data_source, resource_mapper)
+    #return Connection(data_source)
+    return Connection(data_source, _local_resource_mappers)
 
 
 def register_resource_mapper(path, dict_mapper=this.resource_mapper_template):
