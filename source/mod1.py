@@ -64,10 +64,15 @@ def load_resource_mappers(path):
 
 def connect(name, resource_mapper=this.resource_mapper_template, default=False):
 
+    _local_resource_mappers = []
+
     class Connection():
         def __init__(self, data_source, resource_mappers):
+            self.log = logging.getLogger(__name__)
             self._ds = data_source
             self._resource_mappers = resource_mappers
+            log.debug('Connection._resource_mappers : {}'.format(self._resource_mappers))
+
         def select(self, query):
             this.log.info('select({})'.format(query))
             '''
@@ -87,22 +92,46 @@ def connect(name, resource_mapper=this.resource_mapper_template, default=False):
     '''
     deve tener traccia delle connessioni: stessa istanza se già creata <eoddata.com>
     '''
-    data_source= this._root + '/data/' + name + '/'
+    data_source_root = this._root + '/data/' + name + '/'
+    ###
+    '''
     try:
-        if (os.path.isdir(data_source)):
+        if (os.path.isdir(data_source_root)):
             log.info('datasource <{}> found'.format(name))    
-            log.info('segue load_resource_mapper({})'.format(data_source))
-            _local_resource_mappers = load_resource_mappers(data_source)
+            log.info('segue load_resource_mapper({})'.format(data_source_root))
+            _local_resource_mappers = load_resource_mappers(data_source_root)
         else:
             log.warning('datasource <{}> NOT found!'.format(name))
             return None
     except OSError as e :
         log.error('OSError : {}'.format(e))
         return None
+    '''
+    ###
+    #
+    # caricare un dict con key=relative_path e value=load_resource_mappers(relative_path)
+    # o : value={relative_path, parent}
+    #
+
+    try:
+        if (os.path.isdir(data_source_root)):
+            for (relative_path, subfolders, f) in os.walk(data_source_root):
+                log.debug('dirpath : {}'.format(relative_path))
+                _local_resource_mappers += load_resource_mappers(relative_path)
+                log.debug('subfolders : {}'.format(subfolders))
+
+            #_local_resource_mappers = load_resource_mappers(data_source_root)
+        else:
+            log.warning('datasource <{}> NOT found!'.format(name))
+            return None
+    except OSError as e :
+        log.error('OSError : {}'.format(e))
+        pass
 
 
-    #return Connection(data_source)
-    return Connection(data_source, _local_resource_mappers)
+    ###
+
+    return Connection(data_source_root, _local_resource_mappers)
 
 
 def register_resource_mapper(path, dict_mapper=this.resource_mapper_template):
@@ -115,29 +144,6 @@ def register_resource_mapper(path, dict_mapper=this.resource_mapper_template):
     except OSError as e:
         log.error(e)
         return False
-
-'''
-def load_resource_mappers(path):
-
-    log.info('load_resource_mappers on path {}'.format(path))
-    try:
-        resource_mappers = [f.path for f in os.scandir(path) if (f.is_file(follow_symlinks=False) and fnmatch.fnmatch(f.name, 'resource-mapper.*.json'))]
-        for f in resource_mappers:
-            id_ref=re.search('.+.(\d+).json', f)
-            if id_ref is not None:
-                log.debug('id_ref= {}'.format(id_ref.group(0)))
-                with open (f) as json_mapper:
-                    resource_mapper = json.load(json_mapper)
-                    #resource_mapper[id_ref.group(0)] = json.load(json_mapper)
-
-                log.info('resource_mapper (json.load) : {}'.format(resource_mapper))
-
-    #OSError (https://docs.python.org/3/library/os.html#os.DirEntry)
-    # (https://stackoverflow.com/questions/273192/how-can-i-create-a-directory-if-it-does-not-exist) 
-    except OSError as e: 
-        log.error(e)
-        return False
-'''
 
 
 def dataSources():
