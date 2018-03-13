@@ -44,7 +44,7 @@ def load_resource_mappers(path):
                     try:
                         resource_mapper = json.load(json_mapper)
                         _local_resource_mappers.insert(j, resource_mapper)
-                        log.info('_local_resource_mappers[{}] : {}'.format(j, resource_mapper))
+                        #log.debug('_local_resource_mappers[{}] : {}'.format(j, resource_mapper))
 
                     except json.JSONDecodeError as e:
                         log.error('JSONDecodeError : check syntax')
@@ -55,10 +55,10 @@ def load_resource_mappers(path):
                 log.warning('invalid resource mapper file name : {}'.format(f))
 
     except Exception as e:
-        log.error('exception (UNMANAGED) : {}'.format(e))
+        log.exception('exception (UNMANAGED) : {}'.format(e))
 
 
-    log.debug('_local_resource_mappers loaded = {}'.format(len(_local_resource_mappers)))
+    #log.debug('_local_resource_mappers loaded = {}'.format(len(_local_resource_mappers)))
     return _local_resource_mappers
 
 
@@ -71,11 +71,11 @@ def connect(name, resource_mapper=this.resource_mapper_template, default=False):
             self.log = logging.getLogger(__name__)
             self._ds = data_source
             self._resource_mappers = resource_mappers
-            self.log.debug('Connection._resource_mappers : {}'.format(self._resource_mappers))
+            #self.log.debug('Connection._resource_mappers : {}'.format(self._resource_mappers))
 
         def select(self, query):
             self.log.debug('select({})'.format(query))
-            self.log.debug('connection._resource_mappers = {}'.format(self._resource_mappers))
+            #self.log.debug('connection._resource_mappers = {}'.format(self._resource_mappers))
             '''
             if query in cache:
                 return cache(query)
@@ -87,13 +87,29 @@ def connect(name, resource_mapper=this.resource_mapper_template, default=False):
             '''
         def ingest(self, resource=None):
 
+            def f_items(path, ext=None):
+                if ext is None:
+                    return [(f.path, f.name) for f in os.scandir(path) if (f.is_file())]
+                else:
+                    return [(f.path, f.name) for f in os.scandir(path) if (f.is_file() and fnmatch.fnmatch(f.name, ext))]
+
+
             self.log.debug('self._ds = {}'.format(self._ds))
+
             if resource is not None:
                 try:
+                    #
+                    # ingest directory
+                    #
                     if os.path.isdir(resource):
-                        files = [f.path for f in os.scandir(resource) if (f.is_file()) ]
-                        self.log.debug('files to ingest : {}'.format(files))
-                        
+                        _files = [f.path for f in os.scandir(resource) if (f.is_file()) ] # (follow sym links)
+                        # new
+                        #_files_ex = f_items(resource)
+                        self.log.debug('files to ingest : {}'.format(_files))
+                       
+                    #
+                    # ingest file
+                    #
                     elif os.path.is_file(resource):
                         self.log.debug('file to ingest : {}'.format(resource))
 
@@ -101,19 +117,25 @@ def connect(name, resource_mapper=this.resource_mapper_template, default=False):
                     pass
             else:
                 try:
-                    # scan files in default ingest directory 
-                    _files = [f.name for f in os.scandir(self._ds + 'raw/') if (f.is_file(follow_symlinks=False) and fnmatch.fnmatch(f.name, '*.txt'))] # parametrizzare fnmatch
+                    # scan files in default ingest directory (self._ds + 'raw/') ===> TBD from configuration
+                    _igst_path = self._ds + 'raw/'
+                    _files = [f.name for f in os.scandir(_igst_path) if (f.is_file() and fnmatch.fnmatch(f.name, '*.txt'))] # fnmatch '*.txt' ===> from config
+                    # new
+                    # _files_ex = f_items(_igst_path)
+
+
                     if _files:
                         self.log.debug('files to ingest : {}'.format(_files))
+
                         for k, fn in enumerate(_files):
-                            # genera regex da resource_mappers
-                            rec = re.compile(self._resource_mappers[0]['ingest']['regex'])
-                            # applica regex su fn
+                            rec = re.compile(self._resource_mappers[0]['ingest']['regex']) # regex from resource_mapper
                             match = rec.match(fn)
-                            if match is not None:   # match
+
+                            if match is not None:   # valid ingest file found (key value not yet verified)
                                 self.log.debug('<{}> is a VALID ingest file'.format(fn))
                                 _market = _symbol = _timeframe = _timestamp = None
                                 groups = self._resource_mappers[0]['ingest']['gmatch'] # TBD : loop over _resource_mappers[]
+
                                 for j, g in enumerate(groups):
                                     #self.log.debug('g[{}] = {}'.format(j, g))
                                     if g == 'MKT':
@@ -134,6 +156,10 @@ def connect(name, resource_mapper=this.resource_mapper_template, default=False):
                     self.log.error(e)
 
 
+    ###@star69
+    #
+    # connect()
+    #
 
     this.log.info('connect({})'.format(name))
     '''
@@ -141,42 +167,46 @@ def connect(name, resource_mapper=this.resource_mapper_template, default=False):
     '''
     data_source_root = this._root + '/data/' + name + '/'
     ###
-    '''
-    try:
-        if (os.path.isdir(data_source_root)):
-            log.info('datasource <{}> found'.format(name))    
-            log.info('segue load_resource_mapper({})'.format(data_source_root))
-            _local_resource_mappers = load_resource_mappers(data_source_root)
-        else:
-            log.warning('datasource <{}> NOT found!'.format(name))
+
+    _DS_ROOT_ONLY_      = 1
+    _ALL_SUBFOLDERS_    = 2
+
+    _resource_scan_policy = _ALL_SUBFOLDERS_
+
+    if _resource_scan_policy == _DS_ROOT_ONLY_:
+        try:
+            if (os.path.isdir(data_source_root)):
+                log.info('datasource <{}> found'.format(name))    
+                log.info('segue load_resource_mapper({})'.format(data_source_root))
+                _local_resource_mappers = load_resource_mappers(data_source_root)
+            else:
+                log.warning('datasource <{}> NOT found!'.format(name))
+                return None
+        except OSError as e :
+            log.error('OSError : {}'.format(e))
             return None
-    except OSError as e :
-        log.error('OSError : {}'.format(e))
-        return None
-    '''
-    ###
-    #
-    # caricare un dict con key=relative_path e value=load_resource_mappers(relative_path)
-    # o : value={relative_path, parent}
-    #
 
-    try:    # scan all subfolders
-        if (os.path.isdir(data_source_root)):
-            for (relative_path, subfolders, f) in os.walk(data_source_root):
-                log.debug('dirpath : {}'.format(relative_path))
-                _local_resource_mappers += load_resource_mappers(relative_path)
-                log.debug('subfolders : {}'.format(subfolders))
+    elif _resource_scan_policy == _ALL_SUBFOLDERS_:
+        #
+        # caricare un dict con key=relative_path e value=load_resource_mappers(relative_path)
+        # o : value={relative_path, parent}
+        #
+        try:    # scan all subfolders for every resource_mapper.json
+            if (os.path.isdir(data_source_root)):
 
-            #_local_resource_mappers = load_resource_mappers(data_source_root)
-        else:
-            log.warning('datasource <{}> NOT found!'.format(name))
+                for (full_path, _, _) in os.walk(data_source_root):
+                    log.debug('full_path : {}'.format(full_path))
+                    _local_resource_mappers += load_resource_mappers(full_path)
+                    #log.debug('subfolders : {}'.format(subfolders))
+
+                #_local_resource_mappers = load_resource_mappers(data_source_root)
+            else:
+                log.warning('datasource <{}> NOT found!'.format(name))
+                return None
+        except OSError as e :
+            log.error('OSError : {}'.format(e))
             return None
-    except OSError as e :
-        log.error('OSError : {}'.format(e))
-        pass
 
-
-    ###
 
     return Connection(data_source_root, _local_resource_mappers)
 
