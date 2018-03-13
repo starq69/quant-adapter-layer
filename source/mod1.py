@@ -117,18 +117,25 @@ def connect(name, resource_mapper=this.resource_mapper_template, default=False):
                     pass
             else:
                 try:
-                    # scan files in default ingest directory (self._ds + 'raw/') ===> TBD from configuration
-                    _igst_path = self._ds + 'raw/'
-                    _files = [f.name for f in os.scandir(_igst_path) if (f.is_file() and fnmatch.fnmatch(f.name, '*.txt'))] # fnmatch '*.txt' ===> from config
+                    # 
+                    # scan files in default ingest directory 
+                    # 
+                    _igst_path = self._ds + 'raw/' # (self._ds + 'raw/') ===> TBD from configuration
+                    #_files = [f.path for f in os.scandir(_igst_path) if (f.is_file() and fnmatch.fnmatch(f.name, '*.txt'))] # fnmatch '*.txt' ===> from config
+                    _files = [f.path for f in os.scandir(_igst_path) if (f.is_file())] 
                     # new
                     # _files_ex = f_items(_igst_path)
 
-
                     if _files:
-                        self.log.debug('files to ingest : {}'.format(_files))
+                        #self.log.debug('files to ingest : {}'.format(_files))
+                        _prepending_path_rex = '.+/' # necessario solo se rec = re.compile(...) usa f.path
 
                         for k, fn in enumerate(_files):
-                            rec = re.compile(self._resource_mappers[0]['ingest']['regex']) # regex from resource_mapper
+                            #
+                            # per quanto riguarda self._resource_mappers[x] in generale x>=1 quindi è necessario un loop (for x in len(self._resource_mappers))
+                            # puntando all'elemento [0] mi riferisco a resource_mapper.1.json corrisp. al mapping a + alta priorità (o ..0.json tbd)
+                            #
+                            rec = re.compile(_prepending_path_rex + self._resource_mappers[0]['ingest']['regex']) # regex from resource_mapper
                             match = rec.match(fn)
 
                             if match is not None:   # valid ingest file found (key value not yet verified)
