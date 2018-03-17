@@ -15,6 +15,11 @@ che viene importato e passato al costruttore di Connection
 
 '''
 
+defaults = {
+        'foo_policy': True,
+        'bar_policy': True,
+        }
+
 '''
 STORAGE SCHEMA POLICY
 '''

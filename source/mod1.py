@@ -219,7 +219,7 @@ def connect(name, resource_mapper=this.resource_mapper_template, default=False):
             self.ds         = data_source
             self.schema     = resource_mappers
 
-            #self.log.debug('Connection.__init__() : SCHEMA = <<{}>>'.format(self.schema))
+            self.log.debug('Connection.__init__() : SCHEMA = <<{}>>'.format(self.schema))
 
 
         def verify_schema(self, expr):
@@ -339,11 +339,11 @@ def connect(name, resource_mapper=this.resource_mapper_template, default=False):
                                         elif K == 'timestamp':
                                             _timestamp = _match.group(j+1)
 
-                                    self.log.debug('_market = {}'.format(_market))
-                                    self.log.debug('_timestamp = {}'.format(_timestamp))
+                                    self.log.info('_market = {}'.format(_market))
+                                    self.log.info('_timestamp = {}'.format(_timestamp))
 
                                 else:
-                                    self.log.debug('<{}> is a NOT VALID ingest file'.format(fn))
+                                    self.log.warning('<{}> is a NOT VALID ingest file'.format(fn))
                     else:
                         print('NO KEY FOUND')
 
