@@ -15,50 +15,63 @@ this.log = None
 this.resource_mapper_template = collections.OrderedDict() 
 
 
-def merge_policy(configuration):
+def merge_policy_ex(conventions, configuration):
 
     configuration = configuration['POLICY']
+    try:
+        for k, v in conventions.defaults.items():
 
+            if k in configuration and not(k in conventions.const):
+
+                conventions.defaults[k] = configuration[k]
+
+    except Exception as e:
+                log.error('merge_policy_ex exception : {}'.format(e))
+
+    return conventions.defaults
+
+
+def merge_policy(conventions, configuration):
+
+    configuration = configuration['POLICY']
     _const = 0
+    _msg = ''
    
     log.info('Running merge_policy')
     try:
-        for k, v in PY.defaults.items():
+        for k, v in conventions.defaults.items():
             #print('k=<{}> v=<{}>'.format(k, v))
-            
+
             if not k in configuration: # carica default su configuration
 
                 log.debug('k=<{}> NOT in configuration'.format(k))
-
-                configuration[k] = str(PY.defaults[k])
+                configuration[k] = str(conventions.defaults[k])
 
             else: # override
 
-                if k in PY.const:
+                if k in conventions.const:  # restore default policy
 
                     log.warning('try to change a const policy!')
-                    # restore default policy
-                    configuration[k] = str(PY.defaults[k])
-
+                    configuration[k] = str(conventions.defaults[k])
                     _const += 1
+
     except Exception as e:
         log.error('merge_policy exception : {}'.format(e))
 
     log.info('merge_policy done.')
 
+    #return configuration
+
 
 def init(conf):
 
+    func_name = sys._getframe().f_code.co_name
+
     this.log = logging.getLogger(__name__)
 
-    merge_policy(conf)
-    '''
-    print('>>> conf[policy] items :')
-    log.info('CONF[policy] (after merge_policy() = {}'.format(conf))
-    for k, v in conf['POLICY'].items():
-        print('\tk={} v={}'.format(k, v)) 
-    print('---')
-    '''
+    log.info('Running {}'.format(func_name))
+
+    merge_policy(PY, conf)
 
     this.name = conf['GLOBALS']['adapter_name']
     this.ds_root = conf['GLOBALS']['datasource_root']
@@ -125,12 +138,9 @@ def load_resource_mappers_ex(mappers, path=None):
 
     return _list_dict_mappers
 
-# rimuovere
+'''
 def load_resource_mappers(path):
-    '''
-    ARGS
-    path : folder da quale ottenere i resource_mappers
-    '''
+
     _mappers = [f.path for f in os.scandir(path) if (f.is_file(follow_symlinks=False) and fnmatch.fnmatch(f.name, 'resource_mapper.*.json'))]
     _local_resource_mappers = []
     try:
@@ -159,7 +169,7 @@ def load_resource_mappers(path):
 
     #log.debug('_local_resource_mappers loaded = {}'.format(len(_local_resource_mappers)))
     return _local_resource_mappers
-
+'''
 
 def get_parent_ex(path, tree):
     '''
@@ -185,7 +195,9 @@ def get_parent_ex(path, tree):
     return None
 
 
-def get_file_items(path, pattern='*', sort=True, fullnames=False):
+def get_file_items(path, pattern=None, sort=True, fullnames=False):
+
+    if not pattern: pattern = '*'
 
     if fullnames:
         _items = [f.path for f in os.scandir(path) if f.is_file() and fnmatch.fnmatch(f.name, pattern)]
@@ -197,11 +209,13 @@ def get_file_items(path, pattern='*', sort=True, fullnames=False):
     return _items
 
 
-def load_schema(path, scan_policy=None):
+def load_schema(path, pattern='*', scan_policy=None):
     '''
     ex tree_mappers()
 
     genera un inverted tree contenente le definizioni(dict items)  dei resource_mappers (la def. dello schema relativo a path)
+
+    TBD: gestire il parametro da passare alla fnmatch (pattern del resource mapper)
 
     '''
     parent = tree = {}
@@ -211,7 +225,7 @@ def load_schema(path, scan_policy=None):
         #print('--parent = ' + str(parent))
         #print('--root = <{}>'.format(root))
 
-        mappers = load_resource_mappers_ex(get_file_items(node, 'resource_mapper.*.json', fullnames=True))
+        mappers = load_resource_mappers_ex(get_file_items(node, PY._MAPPERS_PATTERN_STYLE_, fullnames=True))
         
         if not parent:
             parent = tree[node] = {PY._MAPS_: mappers, 'parent': {}}
@@ -287,11 +301,14 @@ def connect(name, resource_mapper=this.resource_mapper_template, default=False):
 
             POLICY FLAG 1
             '''
+            log.debug('_verify_schema_integrity_ = {}'.format(PY._verify_schema_integrity_))
+
             if PY._verify_schema_integrity_:
                 if key and schema:
                     if not key in schema:
                         return False
                 else: pass  # return internal error (bad parameters)
+
             '''
              POLICY FLAG 2
              if PY._policy_check_2_:
@@ -437,6 +454,10 @@ def connect(name, resource_mapper=this.resource_mapper_template, default=False):
     connect()
     TBD
     deve tener traccia delle connessioni: stessa istanza se già creata <eoddata.com> 
+
+    TBD: qui deve essere disponibile this.policy (restituito alla init(conf) dalla merge_policy(PY, conf['POLICY']) (anche conf['DATA_SORCE_POLICY'])
+    questo ogetto - o più in generale l'intera configurazione - deve essere passato al costruttore di Connection!
+    sulla Connection.__init__ : self.ds_policy = param
     '''
     this.log.info('Running connect({})'.format(name))
 
@@ -453,7 +474,7 @@ def connect(name, resource_mapper=this.resource_mapper_template, default=False):
 
             if _resource_scan_policy == PY._SCHEMA_DS_ROOT_ONLY_ or _resource_scan_policy == PY._SCHEMA_ALL_SUBFOLDERS_:
 
-                _schema = load_schema(data_source_root, _resource_scan_policy)
+                _schema = load_schema(data_source_root, _resource_scan_policy, PY._SCHEMA_DS_ROOT_ONLY_)
 
         else:
             log.warning('datasource <{}> NOT found!'.format(name))
@@ -475,6 +496,8 @@ def connect(name, resource_mapper=this.resource_mapper_template, default=False):
             supplementary_policy = None
     '''
     import test_nod as T # supplementary policy (connection policy)
+
+    ''' TBD : occorre passare anche conf o almeno conf['POLICY']'''
     return Connection(data_source_root, _schema, T)
 
     ###
