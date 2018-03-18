@@ -7,39 +7,80 @@ import os, errno, sys, logging
 import re, fnmatch
 import json   
 import collections 
-import quant_policy as PY
+import conventions as PY
 
 this = sys.modules[__name__]
 
 this.log = None
 this.resource_mapper_template = collections.OrderedDict() 
-this.provider_path = None
+
+
+def merge_policy(configuration):
+
+    configuration = configuration['POLICY']
+
+    _const = 0
+   
+    log.info('Running merge_policy')
+    try:
+        for k, v in PY.defaults.items():
+            #print('k=<{}> v=<{}>'.format(k, v))
+            
+            if not k in configuration: # carica default su configuration
+
+                log.debug('k=<{}> NOT in configuration'.format(k))
+
+                configuration[k] = str(PY.defaults[k])
+
+            else: # override
+
+                if k in PY.const:
+
+                    log.warning('try to change a const policy!')
+                    # restore default policy
+                    configuration[k] = str(PY.defaults[k])
+
+                    _const += 1
+    except Exception as e:
+        log.error('merge_policy exception : {}'.format(e))
+
+    log.info('merge_policy done.')
 
 
 def init(conf):
 
-    '''logging.basicConfig(level=logging.DEBUG, format='%(message)s')
-    '''
     this.log = logging.getLogger(__name__)
-#    this.log('...starting adapter')
 
-    '''this.ds_root = config.get_attr(__name__, '_root')
+    merge_policy(conf)
     '''
-    this.name = 'OHLCV adapter'
+    print('>>> conf[policy] items :')
+    log.info('CONF[policy] (after merge_policy() = {}'.format(conf))
+    for k, v in conf['POLICY'].items():
+        print('\tk={} v={}'.format(k, v)) 
+    print('---')
+    '''
+
     this.name = conf['GLOBALS']['adapter_name']
     this.ds_root = conf['GLOBALS']['datasource_root']
     this.ds_root.strip()
+
+    log.debug('>>>type(conf) = <{}>'.format(str(type(conf))))
+    log.debug('>>>type(conf[\'GLOBALS\']) = <{}>'.format(str(type(conf['GLOBALS']))))
+
+    log.info('>>>conf[GLOBALS][adapter_name] = <{}>'.format(conf['GLOBALS']['adapter_name']))
+
     this.resource_mapper_template['name'] = 'undef'
     this.resource_mapper_template['format'] = ['@SYM', 'date', 'open', 'high', 'low', 'close', 'vol']
     this.resource_mapper_template['sep'] = ','
     this.resource_mapper_template['filename'] = ['@MKT', '_', '@TIMESTAMP', '.txt']
     this.resource_mapper_template['timeframe'] = 'd'
 
+
 def load_resource_mapper(mapper, path=None):
     '''
     ARGS
         mapper : resource mapper
-    RETURN
+RETURN
         dict
     '''
     if path is not None: mapper = path + '/' + mapper
@@ -63,10 +104,9 @@ def load_resource_mappers_ex(mappers, path=None):
         mappers : lista di resource mapper (file names)
     '''
     _local_resource_mappers = []
-    _list_dict_mappers = []
+    _list_dict_mappers      = []
     try:
         for k, f in enumerate(mappers):
-            #print('<<<<<' + str(f) + '>>>>>>')
             if path is not None: fn = path + '/' + f
             else: fn = f
             with open(fn) as json_mapper:
@@ -85,7 +125,7 @@ def load_resource_mappers_ex(mappers, path=None):
 
     return _list_dict_mappers
 
-
+# rimuovere
 def load_resource_mappers(path):
     '''
     ARGS
@@ -116,7 +156,6 @@ def load_resource_mappers(path):
 
     except Exception as e:
         log.exception('exception (UNMANAGED) : {}'.format(e))
-
 
     #log.debug('_local_resource_mappers loaded = {}'.format(len(_local_resource_mappers)))
     return _local_resource_mappers
@@ -175,16 +214,16 @@ def load_schema(path, scan_policy=None):
         mappers = load_resource_mappers_ex(get_file_items(node, 'resource_mapper.*.json', fullnames=True))
         
         if not parent:
-            parent = tree[node] = {PY._maps_: mappers, 'parent': {}}
+            parent = tree[node] = {PY._MAPS_: mappers, 'parent': {}}
             #continue
             if scan_policy == PY._SCHEMA_DS_ROOT_ONLY_:
                 return tree
         else:
             parent = get_parent_ex(node, tree)
             if parent:
-                tree[node] = {PY._maps_: mappers, 'parent': parent}
+                tree[node] = {PY._MAPS_: mappers, 'parent': parent}
             else:
-                tree[node] = {PY._maps_: mappers, 'parent': {}}
+                tree[node] = {PY._MAPS_: mappers, 'parent': {}}
         
     return tree
 
@@ -321,16 +360,17 @@ def connect(name, resource_mapper=this.resource_mapper_template, default=False):
                         _schema_root = self.schema[self.ds]
                         _maps = _schema_root['mappers']
                         _prepending_path_rex = '.+/'
+
                         for k, fn in enumerate(_files):
                             for v in _maps:
-                                _regex = v['ingest']['regex']
+                                _regex = v[PY._INGEST_][PY._REGEX_]
                                 _rec = re.compile(_prepending_path_rex + _regex)
                                 _match = _rec.match(fn)
 
                                 if _match is not None:
                                     self.log.debug('<{}> is a VALID ingest file'.format(fn))
                                     _market = _symbol = _timeframe = _timestamp = None
-                                    groups = v['ingest']['gmatch'] ### proposed new name for groups : fields
+                                    groups = v[PY._INGEST_][PY._GMATCH_] ### proposed new name for groups : fields
 
                                     for j, K in enumerate(groups):
                                         #self.log.debug('g[{}] = {}'.format(j, g))

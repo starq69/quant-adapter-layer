@@ -15,6 +15,7 @@ if __name__ == '__main__':
     cfg_file = parent_dir + '/config.ini'
     cfg_log  = parent_dir + '/log.ini'
 
+    # TBD : config = merge_policy(cfg_file)
     config = configparser.ConfigParser()
 
     if config.read(cfg_file):
@@ -27,17 +28,10 @@ if __name__ == '__main__':
             sys.exit(0)
 
     else:
-        print('missing <' + cfg_file + '> configuration file.')
+        log.debug('missing <' + cfg_file + '> configuration file: STOP')
         sys.exit(0)
 
-    '''
-    conf = parent_dir 
-    logfmt='%(asctime)s [%(name)-12s] [%(levelname)-5.5s]  %(message)s'
-    logging.basicConfig(level=logging.DEBUG, format=logfmt) 
-    log = logging.getLogger(__name__)
-    '''
-
-    log.info('conf={}'.format(config))
+    log.info('>>>conf={}'.format(config))
 
     try:
         adapter = load_adapter(config, 'mod1')  # 'ohlcv_adapter'

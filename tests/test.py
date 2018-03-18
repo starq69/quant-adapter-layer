@@ -2,14 +2,14 @@
 # -*- coding: iso-8859-15 -*-
 
 import sys
-import conventions
+import conventions as policy 
 
 '''
 convention (default) over configuration sample
 '''
 configuration = {}
-configuration[conventions._FOO_POLICY_] = 'changed'
-configuration[conventions._BAR_POLICY_] = 'changed'
+configuration[policy._FOO_POLICY_] = 'changed'
+configuration[policy._BAR_POLICY_] = 'changed'
 
 _ACCEPT_CONST_OVERRIDE_ = False
 _ACCEPT_CONST_OVERRIDE_ = True
@@ -28,7 +28,7 @@ def main():
     '''
     _const = 0
 
-    for k, v in conventions.defaults.items():
+    for k, v in policy.defaults.items():
 
         print('conventions.defaults:')
         print('k={} \tv={}'.format(k, v))
@@ -39,18 +39,18 @@ def main():
             '''
             print('k={} not in configuration'.format(k))
 
-            configuration[k] = conventions.defaults[k]
+            configuration[k] = policy.defaults[k]
 
         else: # override
 
             print('k={} in configuration'.format(k))
             print('TEST : k={} in conventions_const:'.format(k))
 
-            if k in conventions.const:
+            if k in policy.const:
 
                 print('TRUE : warning: try to change a const')
                 if not _ACCEPT_CONST_OVERRIDE_:
-                    configuration[k] = conventions.defaults[k]
+                    configuration[k] = policy.defaults[k]
 
                 _const += 1
 
