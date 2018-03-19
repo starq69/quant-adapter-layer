@@ -7,80 +7,105 @@ import os, errno, sys, logging
 import re, fnmatch
 import json   
 import collections 
-import conventions as PY
+import conventions
 
 this = sys.modules[__name__]
 
 this.log = None
 this.resource_mapper_template = collections.OrderedDict() 
-
-
-def merge_policy_ex(conventions, configuration):
-
-    configuration = configuration['POLICY']
-    try:
-        for k, v in conventions.defaults.items():
-
-            if k in configuration and not(k in conventions.const):
-
-                conventions.defaults[k] = configuration[k]
-
-    except Exception as e:
-                log.error('merge_policy_ex exception : {}'.format(e))
-
-    return conventions.defaults
+this.conf = None
 
 
 def merge_policy(conventions, configuration):
 
-    configuration = configuration['POLICY']
-    _const = 0
-    _msg = ''
-   
-    log.info('Running merge_policy')
-    try:
-        for k, v in conventions.defaults.items():
-            #print('k=<{}> v=<{}>'.format(k, v))
-
-            if not k in configuration: # carica default su configuration
-
-                log.debug('k=<{}> NOT in configuration'.format(k))
-                configuration[k] = str(conventions.defaults[k])
-
-            else: # override
-
-                if k in conventions.const:  # restore default policy
-
-                    log.warning('try to change a const policy!')
-                    configuration[k] = str(conventions.defaults[k])
-                    _const += 1
-
-    except Exception as e:
-        log.error('merge_policy exception : {}'.format(e))
-
-    log.info('merge_policy done.')
-
-    #return configuration
-
-
-def init(conf):
-
     func_name = sys._getframe().f_code.co_name
-
-    this.log = logging.getLogger(__name__)
-
     log.info('Running {}'.format(func_name))
 
-    merge_policy(PY, conf)
+    _K_, _V_ = conventions, conventions.policy
 
-    this.name = conf['GLOBALS']['adapter_name']
-    this.ds_root = conf['GLOBALS']['datasource_root']
+    try:
+        configuration = configuration['POLICY']
+    except KeyError as e:
+        log.warning('No configuration policy section founded. Try to load defaults...')
+
+    try:
+        for k, v in conventions.defaults.items():
+
+            log.debug('default.item = <{}> <{}>'.format(k, v))
+
+            if k in configuration:
+
+                log.debug('CONFIGURED')
+                
+                if not (k in conventions.const):
+
+                    log.debug('variable')
+
+                    conventions.policy[k] = configuration[k] # new
+
+                elif _K_._ACCEPT_CONST_OVERRIDE_ in configuration and (configuration[_K_._ACCEPT_CONST_OVERRIDE_]): #
+
+                    log.debug('const : config accept_const_override = True ==> variable')
+
+                    conventions.policy[k] = configuration[k] #
+
+                else:
+
+                    if conventions.defaults [ _K_._ACCEPT_CONST_OVERRIDE_ ] :
+                        
+                        log.debug('const : config accept_const_override = True ==> variable')
+                        conventions.policy[k] = configuration[k]
+                    else:
+
+                        log.debug('accept_const_override NOT CONFIGURED')
+                        conventions.policy[k] = conventions.defaults[k]
+
+            else:
+                log.debug('NOT CONFIGURED')
+                conventions.policy[k] = conventions.defaults[k]
+            '''
+            else:
+                #if conventions.defaults[_K_._ACCEPT_CONST_OVERRIDE_]: 
+                if _K_._ACCEPT_CONST_OVERRIDE_ in configuration and (configuration[_K_._ACCEPT_CONST_OVERRIDE_]):
+                    conventions.policy[k] = configuration[k]
+                else:
+                
+                    conventions.policy[k] = conventions.defaults[k] # new
+            '''
+
+    except Exception as e:
+                log.error('merge_policy exception : {}'.format(e))
+
+    log.info('merged configuration :')
+    for k, v in conventions.policy.items(): print('<{}> = <{}>'.format(k, v))
+
+    #return conventions, conventions.policy
+
+
+def init(configuration):
+
+    this.log = logging.getLogger(__name__)
+    func_name = sys._getframe().f_code.co_name
+    log.info('Running {}'.format(func_name))
+
+    merge_policy(conventions, configuration)
+
+    _K_, _V_ = conventions, conventions.policy
+
+    log.info('<{}>'.format( _V_ [_K_._MAPS_]))
+    log.info('<{}>'.format( _V_ [_K_._MAPPERS_PATTERN_STYLE_]))
+
+    #for k, v in this.conf.items(): print('<{}>:<{}>'.format(k, v))
+    #for k, v in conventions.policy.items(): print('<{}>:<{}>'.format(k, v))
+
+    this.name = configuration['GLOBALS']['adapter_name']
+    this.ds_root = configuration['GLOBALS']['datasource_root']
     this.ds_root.strip()
 
-    log.debug('>>>type(conf) = <{}>'.format(str(type(conf))))
-    log.debug('>>>type(conf[\'GLOBALS\']) = <{}>'.format(str(type(conf['GLOBALS']))))
+    log.debug('>>>type(conf) = <{}>'.format(str(type(configuration))))
+    log.debug('>>>type(conf[\'GLOBALS\']) = <{}>'.format(str(type(configuration['GLOBALS']))))
 
-    log.info('>>>conf[GLOBALS][adapter_name] = <{}>'.format(conf['GLOBALS']['adapter_name']))
+    log.info('>>>conf[GLOBALS][adapter_name] = <{}>'.format(configuration['GLOBALS']['adapter_name']))
 
     this.resource_mapper_template['name'] = 'undef'
     this.resource_mapper_template['format'] = ['@SYM', 'date', 'open', 'high', 'low', 'close', 'vol']
@@ -138,40 +163,8 @@ def load_resource_mappers_ex(mappers, path=None):
 
     return _list_dict_mappers
 
-'''
-def load_resource_mappers(path):
 
-    _mappers = [f.path for f in os.scandir(path) if (f.is_file(follow_symlinks=False) and fnmatch.fnmatch(f.name, 'resource_mapper.*.json'))]
-    _local_resource_mappers = []
-    try:
-        for k, f in enumerate(_mappers):
-            log.debug('_mappers[{}] : <{}>'.format(k, f))
-            id_ref=re.match(r'.+.(\d+).json', f)
-            if id_ref is not None:
-                j = int(id_ref.group(1))
-                
-                with open (f) as json_mapper:
-                    try:
-                        resource_mapper = json.load(json_mapper)
-                        _local_resource_mappers.insert(j, resource_mapper)
-                        #log.debug('_local_resource_mappers[{}] : {}'.format(j, resource_mapper))
-
-                    except json.JSONDecodeError as e:
-                        log.error('load_resource_mappers --> JSONDecodeError : check syntax')
-
-                    except Exception as e:
-                        log.exception('load_resource_mappers --> exception (UNMANAGED) : {}'.format(e))  #log.error('exception : ', exc_info=True
-            else:
-                log.warning('invalid resource mapper file name : {}'.format(f))
-
-    except Exception as e:
-        log.exception('exception (UNMANAGED) : {}'.format(e))
-
-    #log.debug('_local_resource_mappers loaded = {}'.format(len(_local_resource_mappers)))
-    return _local_resource_mappers
-'''
-
-def get_parent_ex(path, tree):
+def get_parent(path, tree):
     '''
     restituice il nodo parent (corrispondente al parent folder) se esiste
     '''
@@ -210,34 +203,31 @@ def get_file_items(path, pattern=None, sort=True, fullnames=False):
 
 
 def load_schema(path, pattern='*', scan_policy=None):
-    '''
-    ex tree_mappers()
 
-    genera un inverted tree contenente le definizioni(dict items)  dei resource_mappers (la def. dello schema relativo a path)
+    func_name = sys._getframe().f_code.co_name
+    log.info('Running {}'.format(func_name))
 
-    TBD: gestire il parametro da passare alla fnmatch (pattern del resource mapper)
+    _K_, _V_ = conventions, conventions.policy
 
-    '''
     parent = tree = {}
 
     for node, _, _ in os.walk(path):
 
-        #print('--parent = ' + str(parent))
-        #print('--root = <{}>'.format(root))
-
-        mappers = load_resource_mappers_ex(get_file_items(node, PY._MAPPERS_PATTERN_STYLE_, fullnames=True))
+        mappers = load_resource_mappers_ex ( get_file_items ( node, _V_ [ _K_._MAPPERS_PATTERN_STYLE_ ], fullnames=True))
+        log.info('->mappers: {}'.format(str(len(mappers))))
         
         if not parent:
-            parent = tree[node] = {PY._MAPS_: mappers, 'parent': {}}
+            parent = tree[node] = { _V_ [ _K_._MAPS_ ] : mappers, 'parent': {}}
             #continue
-            if scan_policy == PY._SCHEMA_DS_ROOT_ONLY_:
+            log.info('->scan_policy: {}'.format(scan_policy))
+            if scan_policy == _V_ [ _K_._SCHEMA_DS_ROOT_ONLY_ ]:
                 return tree
         else:
-            parent = get_parent_ex(node, tree)
+            parent = get_parent(node, tree)
             if parent:
-                tree[node] = {PY._MAPS_: mappers, 'parent': parent}
+                tree[node] = { _V_ [ _K_._MAPS_ ] : mappers, 'parent': parent }
             else:
-                tree[node] = {PY._MAPS_: mappers, 'parent': {}}
+                tree[node] = { _V_ [ _K_._MAPS_ ] : mappers, 'parent': {}}
         
     return tree
 
@@ -250,14 +240,9 @@ def connect(name, resource_mapper=this.resource_mapper_template, default=False):
         ds                  = None     # ex _ds
         schema              = None      
 
-        #def __init__(self, data_source, resource_mappers):
-        def __init__(self, data_source, resource_mappers, mod=None): ###@Eperimental : mod == supplementary policy module (connection/data_source policy)
+        def __init__(self, data_source, resource_mappers):
 
             self.log = logging.getLogger(__name__)
-            
-            # experimental
-            if mod.present:
-                log.info('Connection.__init__ : supplementary policy LOADED')
 
             ''' queste 2 variabili sono legate tra loro: la connect deve creare l'istanza solo se schema[root] == data_source_root
             in questo modo è superfluo fare il controllo:
@@ -275,45 +260,33 @@ def connect(name, resource_mapper=this.resource_mapper_template, default=False):
             self.log.debug('Connection.__init__() : SCHEMA = <<{}>>'.format(self.schema))
 
 
-        def verify_schema(self, expr):
-            if PY._verify_schema_integrity_:
-                if not expr: return False
-            return True
-
         def check_schema_integrity(self, key=None, schema=None, **other):
+
+            _K_, _V_ = conventions, conventions.policy
             '''
             TBD: si può definire su policy.py ? 
             (in questo caso il modulo sarebbe parte integrante della connessione o dell'adapter ?) 
             della connessione, provare poi su policy.py alias connection-policy.py ad importare
             adapter-policy.py con le policy dell'adapter
 
-            se le policy diventano molte e si vuole configurare un json si potrebbe autogenerare il
-            relativo modulo .py prima che venga importato...
-
-            if 'OVERRIDE_POLICY' in conf:
-                build_override_module(conf['OVERRIDE_POLICY']
-                try:
-                    import override_policy
-
-                module override_policy.py
-                =========================
-                PY.some_policy = new_value
-
             POLICY FLAG 1
             '''
-            log.debug('_verify_schema_integrity_ = {}'.format(PY._verify_schema_integrity_))
+            log.debug('_verify_schema_integrity_ = {}'.format( _V_[ _K_._VERIFY_SCHEMA_INTEGRITY_]))
 
-            if PY._verify_schema_integrity_:
+            if _V_ [_K_._VERIFY_SCHEMA_INTEGRITY_]:
                 if key and schema:
+                    log.debug('KEY & SCHEMA')
                     if not key in schema:
+                        log.debug('NOT KEY in SCHEMA')
                         return False
-                else: pass  # return internal error (bad parameters)
+                else: 
+                    log.debug('NOT(KEY and SCHEMA) ==> bad params')
+                    pass  # return internal error (bad parameters)
 
             '''
              POLICY FLAG 2
              if PY._policy_check_2_:
             '''
-            
             return True
 
 
@@ -332,6 +305,10 @@ def connect(name, resource_mapper=this.resource_mapper_template, default=False):
 
             self.log.info('Running ingest({})'.format(resource if resource else '<None>'))
             self.log.debug('self.ds = {}'.format(self.ds)) ###
+
+            PY = conventions.policy
+
+            _K_, _V_ = conventions, conventions.policy
 
             if resource is not None:
                 try:
@@ -369,25 +346,28 @@ def connect(name, resource_mapper=this.resource_mapper_template, default=False):
                     _files = get_file_items(_igst_path, '*.txt', fullnames=True)
                     log.debug('_files = {}'.format(_files))
                     '''
-                    for i, (k, v) in enumerate(self.schema.items()):
+                    for i,/ (k, v) in enumerate(self.schema.items()):
                         print("index: {}, key: {}, value: {}".format(i, k, v))
                     '''
                     if self.check_schema_integrity(key=self.ds, schema=self.schema): ### (if self.ds in self.schema:) 
 
                         _schema_root = self.schema[self.ds]
-                        _maps = _schema_root['mappers']
+                        _maps = _schema_root[ _K_._MAPS_ ]  # new
                         _prepending_path_rex = '.+/'
 
                         for k, fn in enumerate(_files):
                             for v in _maps:
-                                _regex = v[PY._INGEST_][PY._REGEX_]
+                                #_regex = v[PY._INGEST_][PY._REGEX_]
+                                _regex = v [ _K_._INGEST_ ] [ _K_._REGEX_ ] # new
                                 _rec = re.compile(_prepending_path_rex + _regex)
                                 _match = _rec.match(fn)
 
                                 if _match is not None:
                                     self.log.debug('<{}> is a VALID ingest file'.format(fn))
                                     _market = _symbol = _timeframe = _timestamp = None
-                                    groups = v[PY._INGEST_][PY._GMATCH_] ### proposed new name for groups : fields
+                                    #groups = v[PY._INGEST_][PY._GMATCH_] ### proposed new name for groups : fields
+                                    groups = v[ _K_._INGEST_ ] [ _K_._GMATCH_ ]  # new
+
 
                                     for j, K in enumerate(groups):
                                         #self.log.debug('g[{}] = {}'.format(j, g))
@@ -404,48 +384,6 @@ def connect(name, resource_mapper=this.resource_mapper_template, default=False):
                     else:
                         print('NO KEY FOUND')
 
-
-                    '''
-                    ###-OLD-BEGIN
-                    _igst_path = self.ds + '/raw/' # (self.ds + 'raw/') ===> TBD from configuration
-                    log.debug('ingest --> : _igst_path = <{}>'.format(_igst_path))
-                    #_files = [f.path for f in os.scandir(_igst_path) if (f.is_file() and fnmatch.fnmatch(f.name, '*.txt'))] # fnmatch '*.txt' ===> from config
-                    _files = get_file_items(_igst_path, '*.txt') #TBD: aggiungere policy x file ext. (come sopra)
-
-                    if _files:
-                        #self.log.debug('files to ingest : {}'.format(_files))
-                        _prepending_path_rex = '.+/' # necessario solo se rec = re.compile(...) usa f.path
-
-                        for k, fn in enumerate(_files):
-                            # TBD
-                            # La struttura che detiene i mappers è tree quindi + che un loop si accede a tree con key=path e si ottengono i criteri
-                            # definiti nei _mappers se ci sono, altrimenti si risale tree fino alla root alla ricerca di criteri validi (sezioni ingest applicabili ad fn).
-                            rec = re.compile(_prepending_path_rex + self.resource_mappers[0]['ingest']['regex']) # regex from resource_mapper
-                            match = rec.match(fn)
-
-                            if match is not None:   # valid ingest file found (key value not yet verified)
-                                self.log.debug('<{}> is a VALID ingest file'.format(fn))
-                                _market = _symbol = _timeframe = _timestamp = None
-                                groups = self.resource_mappers[0]['ingest']['gmatch'] # TBD : loop over _resource_mappers[]
-
-                                for j, g in enumerate(groups):
-                                    #self.log.debug('g[{}] = {}'.format(j, g))
-                                    if g == 'MKT':
-                                        _market = match.group(j+1)
-                                    elif g == 'timestamp':
-                                        _timestamp = match.group(j+1)
-
-                                self.log.debug('_market = {}'.format(_market))
-                                self.log.debug('_timestamp = {}'.format(_timestamp))
-                                    
-                            else:
-                                self.log.debug('<{}> is a NOT VALID ingest file'.format(fn))
-                            pass
-                    else:
-                        self.log.debug('NO files to ingest')
-                    pass
-                    ###-OLD-END
-                    '''
                 except FileNotFoundError as e:
                     self.log.error('ingest --> FileNotFoundError : {}'.format(e))
 
@@ -459,22 +397,42 @@ def connect(name, resource_mapper=this.resource_mapper_template, default=False):
     questo ogetto - o più in generale l'intera configurazione - deve essere passato al costruttore di Connection!
     sulla Connection.__init__ : self.ds_policy = param
     '''
+    PY = this.conf
     this.log.info('Running connect({})'.format(name))
-
-    #data_source_root = this.ds_root + '/data/' + name # + '/' 
     data_source_root = this.ds_root 
 
-    #_resource_scan_policy = PY._SCHEMA_ALL_SUBFOLDERS_
-    _resource_scan_policy = PY._SCHEMA_DS_ROOT_ONLY_
+    _K_, _V_ = conventions, conventions.policy
 
+    _resource_scan_policy = conventions.policy['schema_ds_root_only']
     _schema = {}
+
     ###
     try:
         if (os.path.isdir(data_source_root)):
 
-            if _resource_scan_policy == PY._SCHEMA_DS_ROOT_ONLY_ or _resource_scan_policy == PY._SCHEMA_ALL_SUBFOLDERS_:
+            #if _resource_scan_policy == conventions.policy['schema_ds_root_only'] or _resource_scan_policy == conventions.policy['schema_all_subfolders']:
 
-                _schema = load_schema(data_source_root, _resource_scan_policy, PY._SCHEMA_DS_ROOT_ONLY_)
+            log.debug('CHECK ==> _K_._SCHEMA_SCAN_OPTION = {}'.format( _K_._SCHEMA_SCAN_OPTION_ ))
+            log.debug('CHECK ==> _K_._SCHEMA_SET = {}'.format(_K_._SCHEMA_SET))
+
+            if  _V_ [_K_._SCHEMA_SCAN_OPTION_]  in _K_._SCHEMA_SET:
+                log.debug('==> SCHEMA SCAN POLICY : VALORE OK')
+            else:
+                log.debug('==> SCHEMA SCAN POLICY : VALORE NON COONSENTITO')
+                ###@ 
+                sys.exit(0)
+
+            if _V_ [ _K_._SCHEMA_SCAN_OPTION_ ] == _V_ [ _K_._SCHEMA_DS_ROOT_ONLY_ ]:
+
+                _scan_policy = _K_._SCHEMA_DS_ROOT_ONLY_
+
+                _schema = load_schema(data_source_root, _resource_scan_policy, _K_._SCHEMA_DS_ROOT_ONLY_)
+
+            elif _V_ [ _K_._SCHEMA_SCAN_OPTION_ ] == _V_ [ _K_._SCHEMA_ALL_SUBFOLDERS_ ]:
+
+                _scan_policy = _K_._SCHEMA_ALL_SUBFOLDERS_
+
+                _schema = load_schema(data_source_root, _resource_scan_policy, _K_._SCHEMA_ALL_SUBFOLDERS_)
 
         else:
             log.warning('datasource <{}> NOT found!'.format(name))
@@ -484,21 +442,7 @@ def connect(name, resource_mapper=this.resource_mapper_template, default=False):
         log.error('connect --> OSError : {}'.format(e))
         return None
 
-    '''
-    qui l'istanza di Connection ha certamente adapter.type = conf.adapter
-
-    if conf['supplementary_policy']: import test_nod as supplementary_policy
-        return Connection(data_source_root, _schema, supplementary_policy)
-
-        try:
-            import supplementary_policy as SP
-        except ImportError: ###
-            supplementary_policy = None
-    '''
-    import test_nod as T # supplementary policy (connection policy)
-
-    ''' TBD : occorre passare anche conf o almeno conf['POLICY']'''
-    return Connection(data_source_root, _schema, T)
+    return Connection(data_source_root, _schema)
 
     ###
     '''
