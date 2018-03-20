@@ -31,7 +31,7 @@ if __name__ == '__main__':
         log.debug('missing <' + cfg_file + '> configuration file: STOP')
         sys.exit(0)
 
-    log.info('>>>conf={}'.format(config))
+    log.info('config={}'.format(config))
 
     try:
         adapter = load_adapter(config, 'mod1')  # 'ohlcv_adapter'
