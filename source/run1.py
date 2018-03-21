@@ -6,8 +6,45 @@ import logging, logging.config, configparser
 
 from loader import load_adapter
 
+def _start():
+    '''
+    init log/config
+
+    if KO: raise exception
+
+    return config, log
+    '''
+    pass
+
+def _connect(adapter_name, data_source_name):
+    pass
+    '''
+    try:
+        adapter = load_adapter(config, adapter_name)  # 'ohlcv_adapter'
+
+        log.info('adapter <' + adapter.name + '> ready')
+
+        data_source = adapter.connect(data_source_name)
+
+    except:
+        #TBD
+        pass
+    return data_source # (ex appdata)
+    '''
 
 if __name__ == '__main__':
+
+    '''
+    try:
+        conf, log = _start()
+
+        ds = connect (adapter, data_source)
+
+        data = ds.select(query)
+
+    except:
+        # quit
+    '''
 
     base_dir   = os.path.dirname(os.path.realpath(__file__))
     parent_dir = os.path.split(base_dir)[0]
@@ -15,7 +52,6 @@ if __name__ == '__main__':
     cfg_file = parent_dir + '/config.ini'
     cfg_log  = parent_dir + '/log.ini'
 
-    # TBD : config = merge_policy(cfg_file)
     config = configparser.ConfigParser()
 
     if config.read(cfg_file):
