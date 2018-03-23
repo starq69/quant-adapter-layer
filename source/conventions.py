@@ -22,6 +22,7 @@ _SCHEMA_SET = {_SCHEMA_DS_ROOT_ONLY_, _SCHEMA_ALL_SUBFOLDERS_}
 _ACCEPT_CONST_OVERRIDE_     = 'accept_const_override' 
 _MAPPERS_PATTERN_STYLE_     = 'mappers_pattern_style'
 _VERIFY_SCHEMA_INTEGRITY_   = 'verify_schema_integrity' 
+_INGEST_DEFAULT_FILE_PATTERN_ = 'ingest_default_file_pattern'
 
 '''
 CONSTANT SETTINGS
@@ -53,6 +54,8 @@ defaults = {
             #_SCHEMA_SCAN_POLICY_        : _SCHEMA_DS_ROOT_ONLY_,
             #_SCHEMA_SCAN_OPTION_: _SCHEMA_SCAN_POLICY_, # option key const + Default NOT constant value
             _SCHEMA_SCAN_OPTION_: _SCHEMA_DS_ROOT_ONLY_, # option key const 
+
+            _INGEST_DEFAULT_FILE_PATTERN_ : '*.txt'
            }
 '''
 CONFIGURATION SETTINGS

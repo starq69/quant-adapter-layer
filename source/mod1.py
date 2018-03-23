@@ -11,86 +11,123 @@ import conventions ### proposed : rename to settings.py
 
 this = sys.modules[__name__]
 
-this.log = None
+#this.log = None
 this.resource_mapper_template = collections.OrderedDict() ###
-this.conf = None
+#this.conf = None
+
+_open_connections = {}
 
 
-def merge_policy(conventions, configuration):
+def merge_policy(conventions, configuration, section=None): ### per ora uso section es: section='POLICY'
+    '''
+    NB
+    posso passare direttamente configuration ['POLICY']
+    così posso utilizzare la funzione sia per l'adapter sia per la connessione :
+    merge_policy (conventions, configuration ['ADAPTER'])
+    merge_policy (conventions, configuration ['CONNECTION') ora 'ADAPTER' e 'CONNECTION' sono fusi in 'POLICY'
+    NB
+    il parametro deve essere riconoscibile come adapter/connection o altro...
+    '''
 
     func_name = sys._getframe().f_code.co_name
     log.info('==> Running {}({}, {})'.format(func_name, conventions, configuration))
-    '''
-    proposed : Key_, Val_ = settings, settings.configured
-    '''
-    _K_, _V_ = conventions, conventions.policy
 
-    try:
-        configuration = configuration['POLICY']
-    except KeyError as e:
-        configuration = {}
-        log.warning('No configuration policy section founded. Try to load defaults...')
+    ###
 
-    try:
-        for k, v in conventions.defaults.items():
+#    try:
+#        configuration = configuration['POLICY'] ### questo è da verificare a monte sulla init o sulla connect
+#    except KeyError as e:
+#        configuration = {}
+#        log.warning('No configuration policy section founded. Try to load defaults...')
 
-            #log.debug('default.item : [{}] = {}'.format(k, v))
-            _msg = 'conventions.default.item : [{}] = {}'.format(k, v) 
+    if section == 'POLICY':
+    #test
+    #if section == 'POLICY' or section == 'MODEL':
+        '''
+        proposed : Key_, Val_ = settings, settings.configured
+        '''
+        _K_, _V_ = conventions, conventions.policy ### qui si copia conventions.adapter / .connection o altro in base al parametro section
+        configuration = configuration['POLICY'] ###
+        #configuration = configuration[section] ###
 
-            if k in configuration:
+        try:
 
-                log.debug(_msg + ' + found in config')
-                
-                if not (k in conventions.const):
+            for k, v in conventions.defaults.items():
 
-                    log.debug('variable')
+                #log.debug('default.item : [{}] = {}'.format(k, v))
+                _msg = 'conventions.default.item : [{}] = {}'.format(k, v) 
 
-                    conventions.policy[k] = configuration[k] # new
+                if k in configuration:
 
-                elif _K_._ACCEPT_CONST_OVERRIDE_ in configuration and (configuration[_K_._ACCEPT_CONST_OVERRIDE_]): #
+                    log.debug(_msg + ' + found in config')
+                    
+                    if not (k in conventions.const):
 
-                    log.debug('const : config accept_const_override = True ==> variable')
+                        log.debug('variable')
 
-                    conventions.policy[k] = configuration[k] #
+                        conventions.policy[k] = configuration[k] # new
 
-                else:
+                    elif _K_._ACCEPT_CONST_OVERRIDE_ in configuration and (configuration[_K_._ACCEPT_CONST_OVERRIDE_]): #
 
-                    if conventions.defaults [ _K_._ACCEPT_CONST_OVERRIDE_ ] :
-                        
                         log.debug('const : config accept_const_override = True ==> variable')
-                        conventions.policy[k] = configuration[k]
+
+                        conventions.policy[k] = configuration[k] #
+
                     else:
 
-                        log.debug('accept_const_override NOT CONFIGURED')
-                        conventions.policy[k] = conventions.defaults[k]
+                        if conventions.defaults [ _K_._ACCEPT_CONST_OVERRIDE_ ] :
+                            
+                            log.debug('const : config accept_const_override = True ==> variable')
+                            conventions.policy[k] = configuration[k]
+                        else:
 
-            else:
-                log.debug(_msg + ' - NOT found in config')
-                conventions.policy[k] = conventions.defaults[k]
+                            log.debug('accept_const_override NOT CONFIGURED')
+                            conventions.policy[k] = conventions.defaults[k]
 
-    except Exception as e:
-                log.error('merge_policy exception : {}'.format(e))
+                else:
+                    log.debug(_msg + ' - NOT found in config')
+                    conventions.policy[k] = conventions.defaults[k]
 
-    log.info('merged configuration :')
-    #for k, v in conventions.policy.items(): log.debug('[{}] = {}'.format(k, v))
-    for k, v in _V_.items(): log.debug('[{}] = {}'.format(k, v))
+        except Exception as e:
+                    log.error('merge_policy exception : {}'.format(e))
+
+        log.info('merged configuration :')
+        #for k, v in conventions.policy.items(): log.debug('[{}] = {}'.format(k, v))
+        for k, v in _V_.items(): log.debug('[{}] = {}'.format(k, v))
+
+        #return conventions, conventions.policy
+
+    elif section == 'MODEL':
+        pass
+    elif section == 'CONNECTION':
+        pass
+    else:
+        log.warning('section parameter value="{}" not yet managed')
+        return False
 
     log.info('<== leave {}()'.format(func_name))
-    #return conventions, conventions.policy
 
 
-def init(configuration):
+def init (configuration): 
 
     this.log = logging.getLogger(__name__)
     func_name = sys._getframe().f_code.co_name
     log.info('==> Running {}({})'.format(func_name, configuration))
 
-    merge_policy(conventions, configuration)
+    # TBD 
+    # merge_policy (conventions, configuration [ 'ADAPTER' ] ) ### la section però deve poter essere dedotta nelle merge_policy()
+    #
+    merge_policy (conventions, configuration, section='POLICY') # forse da ricollocare nel costruttore di Connection...
 
-    _K_, _V_ = conventions, conventions.policy
+    # ...qui sicuramente :
+    # carica le policy dell'adapter: dai parametri, dal file di configurazione, dai defaults
+    # utilizza un set per trovare i parametri passati alla funzione, utilizza defaults per settare i parametri non configurati (sul file di conf dell'adapter/model)
+
+    #_K_, _V_ = conventions, conventions.policy
 
     this.name = configuration['GLOBALS']['adapter_name']
-    this.ds_root = configuration['GLOBALS']['datasource_root']
+
+    this.ds_root = configuration['GLOBALS']['datasource_root']  ### probabile parametro da spostare sulla connect
     this.ds_root.strip()
 
     log.debug('>>>type(conf) = <{}>'.format(str(type(configuration))))
@@ -186,7 +223,7 @@ def get_parent(path, tree):
     return None
 
 
-def get_file_items(path, pattern=None, sort=True, fullnames=False):
+def get_file_items(path, pattern=None, sort=True, fullnames=True):
 
     if not pattern: pattern = '*'
 
@@ -211,7 +248,7 @@ def load_schema(path, scan_policy=None):
 
     for node, _, _ in os.walk(path):
 
-        mappers = load_resource_mappers_ex ( get_file_items ( node, _V_ [ _K_._MAPPERS_PATTERN_STYLE_ ], fullnames=True)) ###
+        mappers = load_resource_mappers_ex ( get_file_items ( node, _V_ [ _K_._MAPPERS_PATTERN_STYLE_ ])) ###
         log.info('->mappers: {}'.format(str(len(mappers))))
         
         if not parent:
@@ -236,15 +273,19 @@ def connect (name, default=False):
     '''
     class Connection():
 
+        name                = None  ### oppure è : schema [_K_._DATA_SOURCE_NAME ] da caricare sulla load_schema()
         ds                  = None 
         schema              = None 
 
-        def __init__(self, data_source, resource_mappers):
+        def __init__(self, name, data_source_root, schema): ###TBD: aggiungere index / cache
 
             self.log = logging.getLogger(__name__)
 
-            self.ds         = data_source       ##
-            self.schema     = resource_mappers  ##
+            self.name       = name              ## univoco : si usa questa chiave per verificare sulla connect() se esiste già l'istanza in _open_connections[]
+            self.ds         = data_source_root  ## rinominare in dsr
+            self.schema     = schema            ##
+            ##self.index    = index
+            ##self.cache    = cache
 
             self.log.debug('Connection.__init__() : SCHEMA = <{}>'.format(self.schema))
 
@@ -310,10 +351,14 @@ def connect (name, default=False):
                     if os.path.isdir(resource):
                         '''
                         ingest directory
-
-                        TBD: aggiungere una policy x la/le estensioni dei files
                         '''
-                        _files = get_file_items(resource, '*.txt')
+                        self.log.debug('ingest DIRECTORY')
+                        _files = get_file_items(resource, _V_ [ _K_._INGEST_DEFAULT_FILE_PATTERN_ ])
+
+                        if not _files:
+                            log.warning('NO FILES TO INGEST FOUND')
+                            return None
+
                         self.log.debug('files to ingest : {}'.format(_files))
 
                         ###
@@ -322,6 +367,7 @@ def connect (name, default=False):
                         '''
                         ingest file
                         '''
+                        self.log.debug('ingest FILE')
                         self.log.debug('file to ingest : {}'.format(resource))
                         ###
 
@@ -336,8 +382,20 @@ def connect (name, default=False):
                     (QUELLI CHE NON RISULTANO MAI PARENT)
                     VALUTARE ANCHE SE UTILIZZARE UN OrderedDict nella load_schema() in modo tale che la root sia sempre il primo nodo
                     '''
+
+                    if _V_ [ _K_._SCHEMA_SCAN_OPTION_ ] != _K_._SCHEMA_DS_ROOT_ONLY_:
+                        log.debug ('Ingest from default location if scan option is not schema_ds_root_only is NOT YET IMPLEMENTED')
+                        sys.exit(1)
+
+                    log.debug('ingest from DEFAULT LOCATION')
+
                     _igst_path = self.ds + '/raw/'
-                    _files = get_file_items (_igst_path, '*.txt', fullnames=True)
+                    _files = get_file_items (_igst_path, _V_ [ _K_._INGEST_DEFAULT_FILE_PATTERN_ ])
+
+                    if not _files:
+                        log.warning('NO FILES TO INGEST FOUND')
+                        return None
+
                     log.debug('_files = {}'.format(_files))
                     '''
                     for i,/ (k, v) in enumerate(self.schema.items()):
@@ -383,10 +441,14 @@ def connect (name, default=False):
 
     '''
     connect
-    TBD: deve tener traccia delle connessioni: stessa istanza se già creata <eoddata.com> 
     '''
+
     func_name = sys._getframe().f_code.co_name
     log.info('==> Running {}(name={})'.format(func_name, name))
+
+    if name in _open_connections:
+        log.info ('connection <{}> already open!'.format(name))
+        return _open_connections [ name ]
 
     data_source_root = this.ds_root 
 
@@ -416,11 +478,21 @@ def connect (name, default=False):
             log.warning('datasource <{}> NOT found!'.format(name))
             return None
 
+    except KeyError as ke:
+        log.error('INTERNAL ERROR : 1 or more settings _SCHEMA_ key NOT DEFINED : pls check configuration & implementation')
+        log.error(str(ke))
+        sys.exit(0)
+
     except OSError as e:
         log.error('connect --> OSError : {}'.format(e))
         return None
 
-    return Connection (data_source_root, _schema)
+    try:
+        this._open_connections [ name ] = Connection (name, data_source_root, _schema)
+        return this._open_connections [ name ]
+    except Exception as e:
+        log.debug('some kind of problems here : {}'.format(e))
+        return None
 
 
 def register_resource_mapper (path, dict_mapper=this.resource_mapper_template):

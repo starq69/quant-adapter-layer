@@ -19,8 +19,7 @@ def load_adapter(conf, module_name):
         adapter.init() quindi carica la configurazione dell'adapter (adapter-name.conf)
         non necessaria a livello applicativo
         '''
-        adapter.init(conf)
-
+        adapter.init(conf) 
 
     # except ... raise
     except AttributeError as e:
