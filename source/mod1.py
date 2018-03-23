@@ -9,15 +9,17 @@ import json
 import collections 
 import conventions ### proposed : rename to settings.py
 
+from utils import caller_name, protected    ###
+
 this = sys.modules[__name__]
 
 #this.log = None
-this.resource_mapper_template = collections.OrderedDict() ###
 #this.conf = None
+this.resource_mapper_template = collections.OrderedDict() ###
 
 _open_connections = {}
 
-
+@protected ###TBD
 def merge_policy(conventions, configuration, section=None): ### per ora uso section es: section='POLICY'
     '''
     NB
@@ -31,6 +33,12 @@ def merge_policy(conventions, configuration, section=None): ### per ora uso sect
 
     func_name = sys._getframe().f_code.co_name
     log.info('==> Running {}({}, {})'.format(func_name, conventions, configuration))
+
+    _caller = sys._getframe(1).f_code.co_name
+    log.info('EXPERIMENTAL : caller = {}'.format(_caller))
+
+    _caller = caller_name(skip=2)
+    log.info('EXPERIMENTAL : caller = {}'.format(_caller))
 
     ###
 
@@ -174,7 +182,6 @@ def load_resource_mappers_ex(mappers, path=None):
     func_name = sys._getframe().f_code.co_name
     log.info('==> Running {}()'.format(func_name))
 
-    _local_resource_mappers = []
     _list_dict_mappers      = []
     try:
         for k, f in enumerate(mappers):
@@ -236,11 +243,24 @@ def get_file_items(path, pattern=None, sort=True, fullnames=True):
         _items=sorted(_items)
     return _items
 
-
+@protected
 def load_schema(path, scan_policy=None):
 
     func_name = sys._getframe().f_code.co_name
     log.info('==> Running {}({}, scan_policy={})'.format(func_name, path, scan_policy))
+
+    _caller = caller_name(skip=2)
+    log.info('EXPERIMENTAL 1 : caller = {}'.format(_caller))
+
+    _caller = sys._getframe(1).f_code.co_name                           ### caller func name es.: <connect>
+    log.info('EXPERIMENTAL 2 : caller = {}'.format(_caller))
+
+    _caller = sys._getframe(0).f_globals.get('__name__', '__main__')    ### <mod1>
+    log.info('EXPERIMENTAL 3 : caller = {}'.format(_caller))
+
+    _caller = sys._getframe().f_back.f_code.co_filename
+    log.info('EXPERIMENTAL 4 : caller = {}'.format(_caller))
+
 
     _K_, _V_ = conventions, conventions.policy
 
@@ -343,6 +363,10 @@ def connect (name, default=False):
             func_name = sys._getframe().f_code.co_name
             self.log.info('==> Running {}(resource={})'.format(func_name, resource if resource else '<None>'))
             self.log.debug('self.ds = {}'.format(self.ds)) ###
+
+            # experimental
+            _caller = sys._getframe(1).f_code.co_name
+            self.log.info('EXPERIMENTAL : caller = {}'.format(_caller)) # <module>
 
             _K_, _V_ = conventions, conventions.policy
 
