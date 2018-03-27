@@ -7,6 +7,7 @@ import os, errno, sys, logging
 import fnmatch
 import json   
 import collections 
+from loader import load_adapter
 
 this = sys.modules[__name__]
 
@@ -14,151 +15,36 @@ this.log = None
 this.resource_mapper_template = collections.OrderedDict() 
 this.provider_path = None
 
-this.started=False
+_adapters = _connections = {}
+
 
 def init(conf):
-
-#    if not this.started:
-
-    '''logging.basicConfig(level=logging.DEBUG, format='%(message)s')
-    '''
-    this.log = logging.getLogger(__name__)
-#    this.log('...starting adapter')
-
-    '''this.DSRoot = config.get_attr(__name__, 'DSRoot')
-    '''
-    this.name = 'my base module adapter'
-    this.DSRoot = conf
-    this.resource_mapper_template['name'] = 'undef'
-    this.resource_mapper_template['format'] = ['@SYM', 'date', 'open', 'high', 'low', 'close', 'vol']
-    this.resource_mapper_template['sep'] = ','
-    this.resource_mapper_template['filename'] = ['@MKT', '_', '@TIMESTAMP', '.txt']
-    this.resource_mapper_template['timeframe'] = 'd'
-
-#    this.started=True
-#    else:
-#    this.log.info('...adapter already started')
-
-#class Connection():
-#    def __init__(self, conf):
-#        self.root = conf
-#    def select(self, query): 
-#        this.log.info('select({})'.format(query)) 
-#    def ingest(self, datastore): 
-#        this.log.info('ingest({})'.format(datastore)) 
-
-def connect(name, resource_mapper=this.resource_mapper_template, default=False):
-
-    class Connection():
-        def __init__(self, conf):
-            self.root = conf
-        def select(self, query):
-            this.log.info('select({})'.format(query))
-        def ingest(self, datastore):
-            this.log.info('ingest({})'.format(datastore))
-
-    this.log.info('connect({})'.format(name))
-    data_source= this.DSRoot + '/data/' + name + '/'
-    ###@starq69: crea datasource se non esiste (valutare anche altre modalità)
-    try:
-        os.makedirs(data_source)
-    except OSError as e:
-        if e.errno != errno.EEXIST:
-            log.error(e)
-            return False
-        else:
-            log.info('datasource founded on path {}'.format(data_source))
-
-    register_resource_mapper(data_source, resource_mapper)
-
-    return Connection(data_source)
-
-
-
-def register_provider(name, resource_mapper=this.resource_mapper_template, default=False):
-###@starq69
-#def connect(...) # class factory
-#
-    this.log.info('register_provider {}'.format(name))
-    path = this.DSRoot + '/data/' + name + '/'
-    try:
-        os.makedirs(path)
-    except OSError as e:
-        if e.errno != errno.EEXIST:
-            log.error(e)
-            return False
-            #raise
-        else:
-            log.warning('provider {} already registered on path {}'.format(name, path))
-            '''
-            load_resource_mappers(path)
-            return get_resource_mappers(path)
-            '''
-    ###@starq69
-    #connection = factory(..)
-    #return connection
-
-    register_resource_mapper(path, resource_mapper)
-    this.provider_path = path
-    return this.provider_path
-
-###@starq69
-# class factory (..):
-#   self.resource_mapper
-#   def select(..)
-#   def ingest(..)
-
-def register_resource_mapper(path, dict_mapper=this.resource_mapper_template):
-
-    this.log.info('register_resource_mapper on path {}'.format(path))
-    try:
-        with open(path + 'resource_mapper.json', 'w') as f:
-                json.dump(dict_mapper, f, indent=4) 
-        return True
-    except OSError as e:
-        log.error(e)
-        return False
-
-
-def load_resource_mappers(path):
-
-    log.info('load_resource_mappers on path {}'.format(path))
-    try:
-        resource_mappers = [f.path for f in os.scandir(path) if (f.is_file(follow_symlinks=False) and fnmatch.fnmatch(f.name, '*.json'))]
-        for f in resource_mappers:
-            with open (f) as json_mapper:
-                resource_mapper = json.load(json_mapper)
-            log.info('resource_mapper (json.load) : {}'.format(resource_mapper))
-    #OSError (https://docs.python.org/3/library/os.html#os.DirEntry)
-    # (https://stackoverflow.com/questions/273192/how-can-i-create-a-directory-if-it-does-not-exist) 
-    except OSError as e: 
-        log.error(e)
-        return False
-
-
-def select(query):
-    '''
-    if query in cache:
-        return cache(query)
-    elif ingest(query):
-        refresh(cache)
-        return cache(query)
-    else:
-        'NO data found'
-    '''
     pass
 
 
-def dataSources():
-    '''
-    es.
-    DSRoot subfolders list
-    '''
-    subfolders = [f.name for f in os.scandir(this.DSRoot) if f.is_dir() ] 
+def connect(adapter, datasource):
 
-    return subfolders
+    log = logging.getLogger(__name__) 
+    try:
+        if adapter not in _adapters:
+            _adapters[adapter] = adapter = load_adapter('', 'modx')  # 'ohlcv_adapter'
+            log.info('==> adapter loaded')
+        else:
+            adapter = _adapters[adapter]
+            log.info('adapter already loaded!')
 
+    except Exception as e:
+        print('exception : {}'.format(e))
 
-def ingest(keys=[], resource=None):
+    if datasource not in _connections:
+        ### TBD
+        _connections[datasource] = datasource
+        log.info('new connection established')
+    else:
+        log.info('connection already established!')
+
+    return _connections[datasource]
+
+def select(query): ### quale adapter e quale connessione?....
     pass
 

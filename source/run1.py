@@ -64,7 +64,7 @@ if __name__ == '__main__':
             sys.exit (0)
 
     else:
-        log.debug ('missing <' + cfg_file + '> configuration file: STOP')
+        print ('missing <' + cfg_file + '> configuration file: STOP')
         sys.exit (0)
 
     log.info ('config={}'.format(config))
