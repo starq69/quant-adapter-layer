@@ -5,46 +5,45 @@ import sys, os, logging
 from loader import load_adapter
 import conventions
 
-_adapters = {}
+__all__ = ['Connection']
+
+_models = {}
 
 class Connection(object):
 
-    def __init__(self, config, adapter, datasource):
+    def __init__(self, config, model, datasource):
 
         self.log        = logging.getLogger(__name__)
         self.config     = config
-        self.adapter    = adapter
+        self.model      = model.strip()
         self.datasource = datasource
 
-        if self.adapter not in _adapters: 
+        if model not in _models: 
             try:
-                self.adapter = _adapters[self.adapter] = load_adapter('', 'modx') 
-                #import modx as adapter
-                #self.adapter.init(self.config) ..ora nella __enter__
-                self.log.info('==> adapter <{}> loaded'.format(adapter))
+                _models[model] = load_adapter('TBD', model) 
+                self.log.info('==> model <{}> loaded'.format(model))
+
             except Exception as e:
-                self.log.error('fail to load adapter {} : '.format(adapter, e))
-        else:
-            self.adapter = _adapters[self.adapter]                         
+                self.log.error('fail to load model {} : '.format(model, e))
 
 
     def __enter__(self):
 
-        adp = self.adapter
-        ds  = self.datasource
+        model   = _models[self.model]
+        ds      = self.datasource
 
-        adp.init(self.config)
+        model.init(self.config)
         '''
-        if adp not in _adapters:
+        if adp not in _models:
            # try:
-            #adp = _adapters[adp] = load_adapter('', 'modx')  
-            import modx as adapter
-            adapter.init(self.config)
-            self.log.info('==> adapter <{}> loaded'.format(adp))
+            #adp = _models[adp] = load_model('', 'modx')  
+            import modx as model
+            model.init(self.config)
+            self.log.info('==> model <{}> loaded'.format(adp))
            # except Exception as e:
            #     self.log.error('__enter__ exception : {}'.format(e)) 
         else:
-            self.adapter = _adapters[self.adapter]
+            self.model = _models[self.model]
 
         adp.connect(ds)
             adp.load_schema(ds)

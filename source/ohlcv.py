@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-15 -*-
 '''
-Quant2018 eoddata adapter module
+Quant2018 OHLCV BackEnd Engine Model
+(ohlcv.py)
 '''
 import os, errno, sys, logging
 import re, fnmatch
