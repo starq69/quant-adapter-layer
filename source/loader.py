@@ -5,7 +5,10 @@ import logging
 from importFromURI import importModule 
 
 ###@starq69: MVC
-adapters = {}
+
+__all__ = ['load_adapter']
+
+_adapters = {}
 
 def load_adapter(conf, module_name):
     '''
@@ -15,24 +18,14 @@ def load_adapter(conf, module_name):
     '''
     log = logging.getLogger(__name__)
 
-#    if module_name not in adapters:
+    module = module_name.strip()
 
-    adapter = importModule(module_name)
-    adapters[module_name] = adapter
+    if module not in _adapters:
+        try:
+            _adapters[module] = importModule(module)
 
-#    else:
-#        adapter = adapters[module_name]
-
-    try: 
-        '''
-        adapter.init() quindi carica la configurazione dell'adapter (adapter-name.conf)
-        non necessaria a livello applicativo
-        '''
-        #adapter.init(conf) ### rimuovere conf
-
-    # except ... raise
-    except AttributeError as e:
-        log.error('error: {}'.format(e))
-
-    return adapter
+        except Exception as e:
+            raise e ### fail to load model
+    
+    return _adapters[module]
 

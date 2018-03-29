@@ -24,6 +24,8 @@ _MAPPERS_PATTERN_STYLE_     = 'mappers_pattern_style'
 _VERIFY_SCHEMA_INTEGRITY_   = 'verify_schema_integrity' 
 _INGEST_DEFAULT_FILE_PATTERN_ = 'ingest_default_file_pattern'
 
+_CACHE_SIZE_                = 'cache-size'
+
 '''
 CONSTANT SETTINGS
 '''
@@ -37,6 +39,7 @@ const = (_MAPS_,
          _SCHEMA_ALL_SUBFOLDERS_,
 
          _SCHEMA_SCAN_OPTION_,  # option key const
+         _CACHE_SIZE_,
         )
 '''
 DEFAULT SETTINGS
@@ -55,7 +58,9 @@ defaults = {
             #_SCHEMA_SCAN_OPTION_: _SCHEMA_SCAN_POLICY_, # option key const + Default NOT constant value
             _SCHEMA_SCAN_OPTION_: _SCHEMA_DS_ROOT_ONLY_, # option key const 
 
-            _INGEST_DEFAULT_FILE_PATTERN_ : '*.txt'
+            _INGEST_DEFAULT_FILE_PATTERN_ : '*.txt',
+
+            _CACHE_SIZE_            : 10000,
            }
 '''
 CONFIGURATION SETTINGS

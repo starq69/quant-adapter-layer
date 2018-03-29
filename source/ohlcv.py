@@ -8,9 +8,8 @@ import os, errno, sys, logging
 import re, fnmatch
 import json   
 import collections 
-import conventions ### proposed : rename to settings.py
+import conventions ###  TBD from conventions import model_conventions / import model_conventions 
 
-#from utils import caller_name, protected    ###
 
 this = sys.modules[__name__]
 
@@ -19,6 +18,19 @@ this = sys.modules[__name__]
 this.resource_mapper_template = collections.OrderedDict() ###
 
 _open_connections = {}
+
+
+def init (configuration): ### rimuovere configuration
+
+    this.log = logging.getLogger(__name__)
+    func_name = sys._getframe().f_code.co_name
+    log.info('==> Running {}({})'.format(func_name, configuration))
+
+    #merge_policy (conventions, configuration, section='POLICY') # forse da ricollocare nel costruttore di Connection...
+    merge_policy (conventions, configuration, section='MODEL') 
+
+    log.info('<== leave {}()'.format(func_name))
+
 
 def merge_policy (conventions, configuration, section=None): ### per ora uso section es: section='POLICY'
 
@@ -35,28 +47,27 @@ def merge_policy (conventions, configuration, section=None): ### per ora uso sec
 
     if not section: section = 'POLICY'
 
-    if 'POLICY' in configuration.sections():
+    #if 'POLICY' in configuration.sections():
+    if section in configuration.sections():
 
-        log.info('POLICY founded in configuration')
+        log.info('section <{}> founded in configuration'.format(section))
         _configuration = dict(configuration.items('POLICY'))
+
     else:
         configuration = {}
         log.warning('No configuration policy section founded. Try to load defaults...')
 
-    ####
-    #return
 
-    if section == 'POLICY':
+    #if section == 'POLICY':
     #test
-    #if section == 'POLICY' or section == 'MODEL':
+    if section == 'POLICY' or section == 'MODEL':
         '''
         proposed : Key_, Val_ = settings, settings.configured
         '''
-        _K_, _V_ = conventions, conventions.policy ### qui si copia conventions.adapter / .connection o altro in base al parametro section
+        _K_, _V_ = conventions, conventions.policy ### 
 
-        configuration = configuration['POLICY'] ###
-        #configuration = configuration[section] ###
-
+        #configuration = configuration['POLICY'] ###
+        configuration = configuration[section] ###
 
         try:
 
@@ -116,39 +127,17 @@ def merge_policy (conventions, configuration, section=None): ### per ora uso sec
     log.info('<== leave {}()'.format(func_name))
 
 
-def init (configuration): ### rimuovere configuration
-
-    this.log = logging.getLogger(__name__)
-    func_name = sys._getframe().f_code.co_name
-    log.info('==> Running {}({})'.format(func_name, configuration))
-
-    # TBD 
-    # merge_policy (conventions, configuration [ 'ADAPTER' ] ) ### la section però deve poter essere dedotta nelle merge_policy()
-    #
-    merge_policy (conventions, configuration, section='POLICY') # forse da ricollocare nel costruttore di Connection...
-
-    '''
-    ...qui sicuramente :
-    carica le policy dell'adapter: dai parametri, dal file di configurazione, dai defaults
-    utilizza un set per trovare i parametri passati alla funzione, utilizza defaults per settare i parametri non configurati (sul file di conf dell'adapter/model)
-    '''
-
-    #_K_, _V_ = conventions, conventions.policy
-
-    '''
-    this.name = configuration['GLOBALS']['adapter_name']
-    this.ds_root = configuration['GLOBALS']['datasource_root']  ### probabile parametro da spostare sulla connect
-    this.ds_root.strip()
+def registerConnection(ds):
+    log.warning('{} not yet implemented!'.format(sys._getframe().f_code.co_name))
 
 
-    this.resource_mapper_template['name'] = 'undef'
-    this.resource_mapper_template['format'] = ['@SYM', 'date', 'open', 'high', 'low', 'close', 'vol']
-    this.resource_mapper_template['sep'] = ','
-    this.resource_mapper_template['filename'] = ['@MKT', '_', '@TIMESTAMP', '.txt']
-    this.resource_mapper_template['timeframe'] = 'd'
-    '''
+def load_index(x):
+    log.warning('{} not yet implemented!'.format(sys._getframe().f_code.co_name))
 
-    log.info('<== leave {}()'.format(func_name))
+
+def load_cache(x):
+    log.warning('{} not yet implemented!'.format(sys._getframe().f_code.co_name))
+
 
 
 def load_resource_mapper(mapper, path=None):
@@ -243,14 +232,11 @@ def get_file_items(path, pattern=None, sort=True, fullnames=True):
         _items=sorted(_items)
     return _items
 
-#@protected
+
 def load_schema(path, scan_policy=None):
 
     func_name = sys._getframe().f_code.co_name
     log.info('==> Running {}({}, scan_policy={})'.format(func_name, path, scan_policy))
-
-    #_caller = caller_name(skip=2)
-    #log.info('EXPERIMENTAL 1 : caller = {}'.format(_caller))
 
     _caller = sys._getframe(1).f_code.co_name                           ### caller func name es.: <connect>
     log.info('EXPERIMENTAL 2 : caller = {}'.format(_caller))

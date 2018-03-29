@@ -32,24 +32,13 @@ class Connection(object):
         model   = _models[self.model]
         ds      = self.datasource
 
-        model.init(self.config)
-        '''
-        if adp not in _models:
-           # try:
-            #adp = _models[adp] = load_model('', 'modx')  
-            import modx as model
-            model.init(self.config)
-            self.log.info('==> model <{}> loaded'.format(adp))
-           # except Exception as e:
-           #     self.log.error('__enter__ exception : {}'.format(e)) 
-        else:
-            self.model = _models[self.model]
+        model.init(self.config) ### PROPOSED NEW NAME : model.merge(self.config)
 
-        adp.connect(ds)
-            adp.load_schema(ds)
-            adp.load_index (ds)
-            adp.load_cache (ds)
-        '''
+        model.registerConnection(ds)
+        model.load_schema(ds)   ### now is : def load_schema(path, scan_policy=None):
+        model.load_index (ds)
+        model.load_cache (ds)
+
         return self
 
     def __exit__(self, e_typ, e_val, trcbak):
