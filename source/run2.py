@@ -12,7 +12,8 @@ def main():
 
     base_dir   = os.path.dirname (os.path.realpath(__file__))
     parent_dir = os.path.split (base_dir)[0]
-    cfg_file = parent_dir + '/config.ini'
+    #cfg_file = parent_dir + '/config.ini'
+    cfg_file = parent_dir + '/app.ini'
     cfg_log  = parent_dir + '/log.ini'
 
     try:
@@ -28,17 +29,23 @@ def main():
         config = configparser.ConfigParser ()
 
         if not config.read (cfg_file):          ### Return list of successfully read files
-            log.error('missing <{}> configuration file: STOP'.format(cfg_file))
+            log.error('missing app configuration file <{}> : ABORT....'.format(cfg_file))
             sys.exit(1)
 
     except configparser.Error as e:
         print ('STOP : {}'.format (e))
         sys.exit(1)
 
-
+    '''
+    cosa serve a Connection ? : 
+    hyp 1: model_name + datasource_name ==> non passo config
+    hyp 2: model_name + datasorce_name + eventuali override applicativi sottoforma di sezioni
+           ==> passo config
+    '''
     with Connection(config, 'ohlcv', 'eoddata.com') as ds:
         log.info('connection ready!')
         ds.select('xxx')
+        ds.ingest()
 
 if __name__ == '__main__':
     main()

@@ -30,7 +30,7 @@ def importModule(uri, absl=False):
             log.info('compiled imported')
         except Exception as e:
             log.error('imp error: {}'.format(e))
-            pass
+            raise e
 
     if os.path.exists(no_ext + '.py'):
         try:
@@ -39,6 +39,7 @@ def importModule(uri, absl=False):
             log.debug('source imported')
         except Exception as e:
             log.error('imp error: {}'.format(e))
-            pass
+            raise e
 
-    log.error('missing module <{} - {}>'.format(no_ext, mname))
+    #log.error('missing module <{} - {}>'.format(no_ext, mname))
+    raise ### missing module error
