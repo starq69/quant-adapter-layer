@@ -10,7 +10,7 @@ import json
 import collections 
 #import conventions ###  TBD from conventions import model_conventions / import model_conventions 
 import model_settings
-from merge_settings import merge
+from merge_settings import merge_settings
 
 
 this = sys.modules[__name__]
@@ -36,12 +36,12 @@ def init (ds_run_settings, ds_global_settings): ###TBD: vedi merge_policy ()
     if not this.policy:
 
         try:
-            config = configparser.ConfigParser ()
+            configured = configparser.ConfigParser ()
 
-            if not config.read (cfg_file):          ### Return list of successfully read files
+            if not configured.read (cfg_file):          ### Return list of successfully read files
                 log.error('missing model configuration file <{}> ... try to load defaults...'.format(cfg_file))
 
-            this.policy = merge (model_settings, config, 'MODEL') 
+            this.policy = merge_settings (model_settings, configured, 'MODEL') 
 
         except configparser.Error as e:
             log.error ('configparser.Error in model.init() : {}'.format (e))
@@ -63,84 +63,8 @@ def init (ds_run_settings, ds_global_settings): ###TBD: vedi merge_policy ()
 
     return True
 
-''' OLD '''
-def merge_policy (conventions, configuration, section=None): ###TBD: inglobare nella init()
-
-    func_name = sys._getframe().f_code.co_name
-    log.info('==> Running {}({}, {})'.format(func_name, conventions, configuration))
-
-    '''
-    for each_section in configuration.sections():
-        print(each_section)
-        for (each_key, each_val) in configuration.items(each_section):
-            print(each_key)
-            print(each_val)
-    '''
-
-    if not section: section = 'MODEL' 
-    else: section=section.strip() 
-
-    if section in configuration.sections():
-
-        log.info('section [{}] founded in configuration'.format(section))
-        configuration = dict(configuration.items(section))
-        if not configuration:
-            log.warning('configuration section [{}] is empty : try to load defaults'.format(section))
-
-    else:
-        configuration = {}
-        log.warning('No configuration section [{}] founded : try to load defaults'.format(section))
-
-
-    _K_, _V_ = conventions, conventions.policy ### 
-
-    try:
-
-        for k, v in conventions.defaults.items():
-
-            _msg = 'conventions.default.item : [{}] = {}'.format(k, v)  
-
-            if k in configuration:
-
-                log.debug(_msg + ' + found in config')
-
-                if not (k in conventions.const):
-
-                    log.debug('variable')
-
-                    conventions.policy[k] = configuration[k] # new
-
-                elif _K_._ACCEPT_CONST_OVERRIDE_ in configuration and (configuration[_K_._ACCEPT_CONST_OVERRIDE_]): #
-
-                    log.debug('const : config accept_const_override = True ==> variable')
-
-                    conventions.policy[k] = configuration[k] #
-
-                else:
-
-                    if conventions.defaults [ _K_._ACCEPT_CONST_OVERRIDE_ ] : 
-                            
-                        log.debug('const : config accept_const_override = True ==> variable')
-                        conventions.policy[k] = configuration[k]
-                    else:
-
-                        log.debug('accept_const_override NOT CONFIGURED')
-                        conventions.policy[k] = conventions.defaults[k]
-
-            else:
-                log.debug(_msg + ' - NOT found in config')
-                conventions.policy[k] = conventions.defaults[k]
-
-    except Exception as e:
-                log.error('merge_policy exception : {}'.format(e))
-
-    log.info('merged configuration :')
-    for k, v in _V_.items(): log.debug('[{}] = {}'.format(k, v)) 
-
-    log.info('<== leave {}()'.format(func_name))
-
 ''' TB Confirm '''
-def registerConnection(ds): ###TBD: proposed new name : activate/load_datasource(ds)
+def registerConnection (ds): ###TBD: proposed new name : activate/load_datasource(ds)
 
     func_name = sys._getframe().f_code.co_name
     log.info('==> Running {}(name={})'.format(func_name, ds))
@@ -157,11 +81,11 @@ def registerConnection(ds): ###TBD: proposed new name : activate/load_datasource
     log.info('<== leave {}'.format(func_name))
 
 
-def load_index(x):
+def load_index(tbd):
     log.warning('{} not yet implemented!'.format(sys._getframe().f_code.co_name))
 
 
-def load_cache(x):
+def load_cache(tbd):
     log.warning('{} not yet implemented!'.format(sys._getframe().f_code.co_name))
 
 
@@ -244,12 +168,13 @@ def get_parent (path, tree):
     return None
 
 
-def get_file_items (path, pattern=None, sort=True, fullnames=True):
+#def get_file_items (path, pattern=None, sort=True, fullnames=True):
+def get_file_items (path, patterns=None, sort=True, fullnames=True):
 
     # qui pattern può essere _INGEST_DEFAULT_FILE_PATTERN_ ....
     # ma se uso _INGEST_FILE_PATTERNS_ (lista) dovrò appendere su _items
     # ad ogni iterazione
-
+    '''
     if not pattern: pattern = '*'
 
     if fullnames:
@@ -260,6 +185,28 @@ def get_file_items (path, pattern=None, sort=True, fullnames=True):
     if sort:
         _items=sorted(_items)
     return _items
+    '''
+    if not patterns: patterns = '*'
+
+    if type (patterns) is list:
+
+        for pattern in patterns:
+
+            if fullnames:
+                _items += [f.path for f in os.scandir(path) if f.is_file() and fnmatch.fnmatch(f.name, pattern)]
+            else:
+                _items += [f.name for f in os.scandir(path) if f.is_file() and fnmatch.fnmatch(f.name, pattern)]
+    else:
+        if fullnames:
+            _items = [f.path for f in os.scandir(path) if f.is_file() and fnmatch.fnmatch(f.name, patterns)]
+        else:
+            _items = [f.name for f in os.scandir(path) if f.is_file() and fnmatch.fnmatch(f.name, patterns)]
+
+    if sort:
+        _items=sorted(_items)
+    return _items
+
+
 
 ''' NEW '''
 def load_schema (ds_name): 
@@ -521,4 +468,3 @@ def subfolders (path):
             log.error('subfolders({}) --> exception: {}'.format(path, e))
 
     return None
-

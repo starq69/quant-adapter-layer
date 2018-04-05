@@ -3,12 +3,11 @@
 
 import sys, logging
 
-def merge (global_settings, configuration, section=None): ###TBD: inglobare nella init()
+def merge_settings (global_settings, configuration, section=None): ###TBD: inglobare nella init()
 
     func_name = sys._getframe().f_code.co_name
     log = logging.getLogger(__name__)
     log.info('==> Running {}({}, {})'.format(func_name, global_settings, configuration))
-
     '''
     for each_section in configuration.sections():
         print(each_section)
@@ -16,29 +15,30 @@ def merge (global_settings, configuration, section=None): ###TBD: inglobare nell
             print(each_key)
             print(each_val)
     '''
-
     def set_val (default, configured):
         log.debug('enter set_val()')
         try:
-            if type(default) is list:
+            if type (default) is list:
                 # se non vuoto (configured=)
                 if configured: 
+                    #TBD:  valutare se gestire la policy _LIST_ITEM_MERGE_MODE_ (_LIST_ITEM_MERGE_APPEND_, _LIST_ITEM_MERGE_OVERRIDE)
                     return list (set (list (default)  + configured.split(',')))  
                 else:
                     return list (set (list (default)))  
-            else:
+            else: ### scalare
                 return configured 
         except Exception as e:
             log.error('Internal error in set_val() with item of type list! :{}'.format(e))
-            raise
+            raise ###
 
-
+    ### ...
     if not section: section = 'MODEL' 
     else: section=section.strip() 
 
     if section in configuration.sections():
 
         log.debug('section [{}] founded in configuration'.format(section))
+
         configuration = dict(configuration.items(section))
         if not configuration:
             log.warning('configuration section [{}] is empty : try to load defaults'.format(section))
@@ -49,10 +49,12 @@ def merge (global_settings, configuration, section=None): ###TBD: inglobare nell
 
 
     run_settings = {}
-    _K_, _V_ = global_settings, run_settings ### 
+    #_K_, _V_ = global_settings, run_settings ### 
+    _K_ = global_settings
 
     try:
-        for k, v in global_settings.defaults.items():
+        #for k, v in global_settings.defaults.items():
+        for k, v in _K_.defaults.items():
 
             #_msg = 'global_settings.default.item : [{}] = {}'.format(k, v)
 
@@ -92,4 +94,5 @@ def merge (global_settings, configuration, section=None): ###TBD: inglobare nell
 
     log.info('<== leave {}()'.format(func_name))
 
-    return _V_ ### return dict
+    #return _V_ ### return dict
+    return run_settings

@@ -4,7 +4,7 @@
 import sys, os, logging, configparser
 from loader import load_adapter
 import ds_settings as ds_global_settings
-from merge_settings import merge
+from merge_settings import merge_settings
 
 __all__ = ['Connection']
 
@@ -46,7 +46,7 @@ class Connection(object):
             if not configured.read (self.cfg_file):          ### Return list of successfully read files
                 self.log.warning ('missing datasource configuration file <{}> ... try to load defaults...'.format(self.cfg_file))
 
-            self.ds_run_settings = merge (ds_global_settings, configured, self._CONFIG_SECTION_)
+            self.ds_run_settings = merge_settings (ds_global_settings, configured, self._CONFIG_SECTION_)
 
             self.log.debug('--------self.ds_run_settings.items()-----------------')
             for k, v in self.ds_run_settings.items(): self.log.debug('[{}] = {}'.format(k, v))
@@ -68,7 +68,7 @@ class Connection(object):
         model   = _models[self.model]
         ds      = self.datasource
 
-        model.init (self.ds_run_settings, ds_global_settings) ### PROPOSED NEW NAME : model.merge(self.config)
+        model.init (self.ds_run_settings, ds_global_settings) 
 
         #model.registerConnection(ds) ###TBD: new name: load_datasource
         model.load_schema(ds)  
