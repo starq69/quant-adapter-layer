@@ -349,7 +349,10 @@ def _ingest (ds_name, _files):
 
         _idx        = {}
         _mkt_dict   = {}
-        _sym        = {} 
+        _sym        = {}
+
+
+        #_deep_kprfx = '_DEEP_' # key attrib postfix
 
         #for k, fn in enumerate (_files):
         for _map in _maps:
@@ -363,6 +366,7 @@ def _ingest (ds_name, _files):
 
                 _match = _rec.match (fn)
 
+
                 if _match is not None:
                     log.debug('<{}> is a VALID ingest file'.format(fn))
 
@@ -370,19 +374,13 @@ def _ingest (ds_name, _files):
 
                     for j, key in enumerate (keys):
                         ''' NEW '''
-                        log.debug('KEY : {}'.format(key))
-                        skey = _match.group(j+1)
-                        log.debug('skey : {}'.format(skey))
-                        log.debug('... : {}'.format(key+'_DEEP_'))
-                        _deep = _V_ [ key + '_DEEP_']
-                        log.debug('={}'.format(_deep))
-                        '''
-                        skey = _match.group(j+1)
-                        # deep = _V_ [ key.join('_DEEP_') ]
+                        key_deep = '_DEEP_' # key attrib postfix
 
-                            # l'idea è quella di ottenere dai global_settings un attributo di key (essendo mappabile in base al nome)
-                            # che rappresenta il livello e il tipo di dato relativo
-                        '''
+                        skey     = _match.group(j+1) ### val
+                        key_deep = _V_ [ key + str(key_deep) ]
+
+                        log.debug('KEY/skey/attr : {}/{}/{}'.format(key, skey, key_deep))
+
                         if key == '@MKT':
 
                             _market = _match.group(j+1)

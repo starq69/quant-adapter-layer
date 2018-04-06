@@ -6,9 +6,12 @@
 _MAPS_          = 'mappers'
 _INGEST_        = 'ingest'
 _REGEX_         = 'regex'
+_FPATTERN_      = 'fpattern'   # ex _REGEX_
 _GMATCH_        = 'gmatch'
+_KEYMATCH_      = 'keymatch'  # ex _GMATCH_
 _TIMEFRAME_     = 'timeframe'
 _FORMAT_        = 'format'
+_FFORMAT_       = 'fformat'  # ex _FORMAT_
 _SEPARATOR_     = 'sep'
 
 _MKT_           = 'MKT'
@@ -53,6 +56,8 @@ const = (_ACCEPT_CONST_OVERRIDE_,
         _INGEST_,
         _REGEX_,
         _GMATCH_,
+        _FPATTERN_,
+        _KEYMATCH_,
         _MKT_DEEP_,
         _SYM_DEEP_,
         _TIMEFRAME_DEEP_,
@@ -66,6 +71,8 @@ defaults = {
             _INGEST_    : _INGEST_,
             _REGEX_     : _REGEX_,
             _GMATCH_    : _GMATCH_,
+            _FPATTERN_  : _FPATTERN_, # ex regex
+            _KEYMATCH_  : _KEYMATCH_, # ex gmatch
             _MODEL_NAME_                : 'undef',
             _DATASOURCE_NAME_           : 'undef',
             _DATASOURCE_ROOT_           : 'undef',
