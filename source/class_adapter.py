@@ -114,7 +114,8 @@ class Connection(object):
                     ingest directory
                     '''
                     self.log.debug('ingest DIRECTORY')
-                    _files = model.get_file_items (resource, _V_ [ _K_._INGEST_DEFAULT_FILE_PATTERN_ ])
+                    #_files = model.get_file_items (resource, _V_ [ _K_._INGEST_DEFAULT_FILE_PATTERN_ ])
+                    _files = model.get_file_items (resource, _V_ [ _K_._INGEST_FILE_PATTERNS_ ])
 
                     if not _files:
                         self.log.warning('NO FILES TO INGEST FOUND')
@@ -141,7 +142,8 @@ class Connection(object):
                 self.log.debug('ingest from DEFAULT LOCATION')
 
                 path = _V_ [ _K_._INGEST_DEFAULT_PATH_ ]
-                _files = model.get_file_items (path, _V_ [ _K_._INGEST_DEFAULT_FILE_PATTERN_ ])
+                #_files = model.get_file_items (path, _V_ [ _K_._INGEST_DEFAULT_FILE_PATTERN_ ])
+                _files = model.get_file_items (path, _V_ [ _K_._INGEST_FILE_PATTERNS_ ])
 
                 if not _files:
                     self.log.warning('NO FILES TO INGEST FOUND')

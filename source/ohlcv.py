@@ -168,8 +168,7 @@ def get_parent (path, tree):
     return None
 
 
-#def get_file_items (path, pattern=None, sort=True, fullnames=True):
-def get_file_items (path, patterns=None, sort=True, fullnames=True):
+def get_file_items (path, pattern=None, sort=True, fullnames=True):
 
     # qui pattern può essere _INGEST_DEFAULT_FILE_PATTERN_ ....
     # ma se uso _INGEST_FILE_PATTERNS_ (lista) dovrò appendere su _items
@@ -186,21 +185,23 @@ def get_file_items (path, patterns=None, sort=True, fullnames=True):
         _items=sorted(_items)
     return _items
     '''
-    if not patterns: patterns = '*'
+    if not pattern: pattern = '*'
 
-    if type (patterns) is list:
+    _items = []
 
-        for pattern in patterns:
+    if type (pattern) is list:
+
+        for p in pattern:
 
             if fullnames:
-                _items += [f.path for f in os.scandir(path) if f.is_file() and fnmatch.fnmatch(f.name, pattern)]
+                _items += [f.path for f in os.scandir(path) if f.is_file() and fnmatch.fnmatch(f.name, p)]
             else:
-                _items += [f.name for f in os.scandir(path) if f.is_file() and fnmatch.fnmatch(f.name, pattern)]
+                _items += [f.name for f in os.scandir(path) if f.is_file() and fnmatch.fnmatch(f.name, p)]
     else:
         if fullnames:
-            _items = [f.path for f in os.scandir(path) if f.is_file() and fnmatch.fnmatch(f.name, patterns)]
+            _items = [f.path for f in os.scandir(path) if f.is_file() and fnmatch.fnmatch(f.name, pattern)]
         else:
-            _items = [f.name for f in os.scandir(path) if f.is_file() and fnmatch.fnmatch(f.name, patterns)]
+            _items = [f.name for f in os.scandir(path) if f.is_file() and fnmatch.fnmatch(f.name, pattern)]
 
     if sort:
         _items=sorted(_items)
@@ -334,12 +335,10 @@ def _ingest (ds_name, _files):
     _K_     = _open_connections[ ds_name ] ['_KEYS_']  
     _V_     = _open_connections[ ds_name ] ['_SETTINGS_'] 
     _schema = _open_connections[ ds_name ] ['_SCHEMA_']
-
     '''
     for i,/ (k, v) in enumerate(self.schema.items()):
         print("index: {}, key: {}, value: {}".format(i, k, v))
     '''
-
     if check_schema_integrity (ds_name, key=_V_ [ _K_._DATASOURCE_ROOT_], schema=_schema): 
     
         _schema_root = _schema [ _V_ [ _K_._DATASOURCE_ROOT_ ] ]
@@ -370,17 +369,19 @@ def _ingest (ds_name, _files):
                     _market = _symbol = _timeframe = _timestamp = None      ### KEYS
 
                     for j, key in enumerate (keys):
+                        ''' NEW '''
+                        log.debug('KEY : {}'.format(key))
+                        skey = _match.group(j+1)
+                        log.debug('skey : {}'.format(skey))
+                        log.debug('... : {}'.format(key+'_DEEP_'))
+                        _deep = _V_ [ key + '_DEEP_']
+                        log.debug('={}'.format(_deep))
                         '''
                         skey = _match.group(j+1)
-                        if skey == key:
-                            # get deep_level(key) 
-                            # deep = _V_ [ key.join('_DEEP_') ]
-                            log.debug(
+                        # deep = _V_ [ key.join('_DEEP_') ]
 
                             # l'idea è quella di ottenere dai global_settings un attributo di key (essendo mappabile in base al nome)
                             # che rappresenta il livello e il tipo di dato relativo
-
-
                         '''
                         if key == '@MKT':
 

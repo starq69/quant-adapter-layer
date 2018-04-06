@@ -11,6 +11,17 @@ _TIMEFRAME_     = 'timeframe'
 _FORMAT_        = 'format'
 _SEPARATOR_     = 'sep'
 
+_MKT_           = 'MKT'
+_SYM_           = 'SYM'
+_TIMEFRAME_     = 'timeframe'
+_TIMESTAMP_     = 'timestamp'
+
+_MKT_DEEP_           = '@MKT_DEEP_'
+_SYM_DEEP_           = '@SYM_DEEP_'
+_TIMEFRAME_DEEP_     = '@timeframe_DEEP_'
+_TIMESTAMP_DEEP_     = '@timestamp_DEEP_'
+
+
 _MODEL_NAME_                = 'model_name'
 _DATASOURCE_NAME_           = 'datasource_name'
 _DATASOURCE_ROOT_           = 'datasource_root'
@@ -42,6 +53,10 @@ const = (_ACCEPT_CONST_OVERRIDE_,
         _INGEST_,
         _REGEX_,
         _GMATCH_,
+        _MKT_DEEP_,
+        _SYM_DEEP_,
+        _TIMEFRAME_DEEP_,
+        _TIMESTAMP_DEEP_,
         )
 '''
 DEFAULT SETTINGS
@@ -68,6 +83,11 @@ defaults = {
             # merge()
             #
             _CACHE_SIZE_                : 10000,
+
+            _MKT_DEEP_           : 0,
+            _SYM_DEEP_           : 1,
+            _TIMEFRAME_DEEP_     : 2,
+            _TIMESTAMP_DEEP_     : 3,
            }
 '''
 CONFIGURATION SETTINGS
