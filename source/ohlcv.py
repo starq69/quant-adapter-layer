@@ -253,7 +253,7 @@ def load_schema (ds_name):
     try:
         if (os.path.isdir(data_source_root)):
 
-            if  not _V_ [_K_._SCHEMA_SCAN_OPTION_]  in _K_._SCHEMA_SET:
+            if  not _V_ [_K_._SCHEMA_SCAN_OPTION_]  in _K_._SCHEMA_SET_:
                 log.error('BAD CONFIGURATION : schema_scan_option={}'.format(_V_ [_K_._SCHEMA_SCAN_OPTION_]))
                 ###raise 
                 sys.exit(0) ### TBD
@@ -351,39 +351,42 @@ def _ingest (ds_name, _files):
         _mkt_dict   = {}
         _sym        = {}
 
+        _attr = '_ATTR_'
 
-        #_deep_kprfx = '_DEEP_' # key attrib postfix
-
-        #for k, fn in enumerate (_files):
         for _map in _maps:
 
-            _regex = _map [ _K_._INGEST_ ] [ _K_._REGEX_ ] # new
-            _rec = re.compile (_prepending_path_rex + _regex)
-            keys    = _map [ _K_._INGEST_ ] [ _K_._GMATCH_ ]  
+            _regex  = _map [ _K_._INGEST_ ] [ _K_._FPATTERN_ ] # new
+            keys    = _map [ _K_._INGEST_ ] [ _K_._KEYMATCH_ ]  
+            _rec    = re.compile (_prepending_path_rex + _regex)
 
-            #for _map in _maps:
+            _data_mapper    = {}
+
             for k, fn in enumerate (_files):
 
                 _match = _rec.match (fn)
 
-
                 if _match is not None:
-                    log.debug('<{}> is a VALID ingest file'.format(fn))
 
+                    log.debug('<{}> is a VALID ingest file'.format(fn))
                     _market = _symbol = _timeframe = _timestamp = None      ### KEYS
 
+                    '''
+                    RICERCA DELLE KEYS NEL NOMEFILE
+                    '''
                     for j, key in enumerate (keys):
-                        ''' NEW '''
-                        key_deep = '_DEEP_' # key attrib postfix
 
-                        skey     = _match.group(j+1) ### val
-                        key_deep = _V_ [ key + str(key_deep) ]
+                        _val     = _match.group(j+1) # valore
+                        ''' key attributes '''
+                        key_attr = _V_ [ key + str(_attr) ]
+                        ''' update data mapper'''
+                        _data_mapper [ key ] = []       ### key can be: @MKT, @SYM, @timeframe, @timestamp
+                        _data_mapper [ key ].append(_val)
 
-                        log.debug('KEY/skey/attr : {}/{}/{}'.format(key, skey, key_deep))
+                        log.debug('KEY/val/attr : {}/{}/{}'.format(key, _val, key_attr))
 
                         if key == '@MKT':
 
-                            _market = _match.group(j+1)
+                            _market = _match.group(j+1) # valore
                             if _market not in _idx:
 
                                 _mkt_dict = _idx[_market]   = {}
@@ -396,17 +399,23 @@ def _ingest (ds_name, _files):
                             pass
 
                         elif key == '@timestamp':
-                            _timestamp = _match.group(j+1)
+                            _timestamp = _match.group(j+1) # valore
 
                     log.info('Keys founded in file : market = {}, timestamp = {}'.format(_market, _timestamp))
                     log.debug('we proced to analyze file content...')
 
-                    fields      = _map [ _K_._INGEST_ ] [ _K_._FORMAT_ ]
+                    fields      = _map [ _K_._INGEST_ ] [ _K_._FFORMAT_ ]
                     separator   = _map [ _K_._INGEST_ ] [ _K_._SEPARATOR_ ]
 
                     with open(fn, 'r') as f:
-                        rows    = f.read().splitlines()
-                        header  = rows.pop(0)
+                        #rows    = f.read().splitlines()
+                        #header  = rows.pop(0)
+
+                        header = f.readline()
+                        # TEST header for keys....:ok
+                        rows = f.read().splitlines()
+                        # ko : warning + continue   ###
+                        
                         log.debug('HEADER : {}'.format(header))
                         for row in rows:
                             data = row.split( separator )
@@ -419,7 +428,7 @@ def _ingest (ds_name, _files):
                                         _mkt_dict [ field ] = data
                                     #log.debug('key {} found : {}'.format(fields[i], field))
 
-                        log.debug('tot rows = {}'.format(len(rows)))
+                        log.debug('tot data rows = {}'.format(len(rows)))
                     
 #                    for k, _map in sorted(_mkt_dict.items()):
 #                        log.debug ('_mkt_dict : {} -> {}'.format(k, _map))
