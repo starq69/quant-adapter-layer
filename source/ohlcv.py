@@ -8,6 +8,8 @@ import os, errno, sys, logging, configparser
 import re, fnmatch
 import json   
 import collections 
+from distutils.util import strtobool ## usare str2bool
+from functools import lru_cache
 #import conventions ###  TBD from conventions import model_conventions / import model_conventions 
 import model_settings
 from merge_settings import merge_settings
@@ -170,21 +172,6 @@ def get_parent (path, tree):
 
 def get_file_items (path, pattern=None, sort=True, fullnames=True):
 
-    # qui pattern può essere _INGEST_DEFAULT_FILE_PATTERN_ ....
-    # ma se uso _INGEST_FILE_PATTERNS_ (lista) dovrò appendere su _items
-    # ad ogni iterazione
-    '''
-    if not pattern: pattern = '*'
-
-    if fullnames:
-        _items = [f.path for f in os.scandir(path) if f.is_file() and fnmatch.fnmatch(f.name, pattern)]
-    else:
-        _items = [f.name for f in os.scandir(path) if f.is_file() and fnmatch.fnmatch(f.name, pattern)]
-
-    if sort:
-        _items=sorted(_items)
-    return _items
-    '''
     if not pattern: pattern = '*'
 
     _items = []
@@ -205,6 +192,7 @@ def get_file_items (path, pattern=None, sort=True, fullnames=True):
 
     if sort:
         _items=sorted(_items)
+
     return _items
 
 
@@ -219,32 +207,165 @@ def load_schema (ds_name):
     _V_ = _open_connections[ ds_name ] ['_SETTINGS_']                                                     
 
     if '_SCHEMA_' in _open_connections[ ds_name ]:
-        log.waning('SCHEMA OVERRIDE...')
+        log.waning('SCHEMA OVERRIDE!')
 
-    _open_connections[ ds_name ] ['_SCHEMA_'] = {}                                                    
-    _schema = _open_connections[ ds_name ] ['_SCHEMA_']                                                     
+    _schema = _open_connections[ ds_name ] ['_SCHEMA_'] = {}      ### empty SCHEMA 
     data_source_root = _V_ [ _K_._DATASOURCE_ROOT_ ]                                                                  
                                                                                                           
     def _load_schema (path, scan_policy=None):
+#        
+#    args :
+#        path        : root dir to scan (ds_root)
+#        scan_policy : schema_ds_root_only | schema_all_subfolders_
+#
+#    return :
+#        dict (ds_schema)
+
+
+        if scan_policy == _V_ [ _K_._SCHEMA_DS_ROOT_ONLY_ ]:
+
+            tree = {_K_._TABLES_: [], _K_._MAPS_: []}
+
+            table_defs  = load_resource_mappers_ex ( get_file_items ( path, _V_[_K_._DATASET_MAP_FILES_]))  # issue#2
+            if not table_defs:
+                log.error('NO TABLE DEFINITIONS FOUND! Pls check datasource configuration. ABORT')
+                sys.exit(1)
+            log.info('->tot table definitions : {}'.format(str(len(table_defs)))) 
+            tree [_K_._TABLES_] = table_defs
+
+            # issue#2 : ex _MAPPERS_PATTERN_STYLE_ 
+            ingest_maps = load_resource_mappers_ex ( get_file_items ( path, _V_[_K_._INGEST_MAP_FILES_]))
+            if not ingest_maps:
+                log.error('NO INGEST MAPPERS FOUND! Pls check datasource configuration. ABORT')
+                sys.exit(1)
+            log.info('->tot ingest mappers : {}'.format(str(len(ingest_maps)))) 
+            tree[_K_._MAPS_] = ingest_maps
+
+        elif scan_policy == _V_ [ _K_.SCHEMA_ALL_SUBFOLDERS_]:
+
+            parent = tree = {}
+            tree = {_K_._TABLES_: [], _K_._MAPS_: {}}
+
+            for node, _, _ in os.walk(path): 
+
+                ingest_maps = load_resource_mappers_ex ( get_file_items ( node, _V_[_K_._INGEST_MAP_FILES_]))  # issue#2 : ex _MAPPERS_PATTERN_STYLE_ 
+                log.info('->tot ingest mappers : {}'.format(str(len(ingest_maps)))) 
+                
+                if not parent:                                                                                    
+                    parent = tree[_K_._MAPS_][node] = { _V_ [ _K_._MAPS_ ] : mappers, 'parent': {}}                           
+                    
+                else:   
+                    parent = get_parent(node, tree)                                                               
+                    if parent:
+                        tree[_K_._MAPS_][node] = { _V_ [ _K_._MAPS_ ] : mappers, 'parent': parent }                           
+                    else:
+                        tree[_K_._MAPS_][node] = { _V_ [ _K_._MAPS_ ] : mappers, 'parent': {}}                                
+
+                table_defs  = load_resource_mappers_ex ( get_file_items ( node, _V_[_K_._DATASET_MAP_FILES_]))  # issue#2
+                log.info('->tot table definitions : {}'.format(str(len(table_defs)))) 
+                tree [_K_._TABLES_] += table_defs
+                    
+        log.info('<== leave {}()'.format(func_name))                                                          
+
+        return tree
+
+    try:
+        if (os.path.isdir(data_source_root)):
+
+            if  not _V_ [_K_._SCHEMA_SCAN_OPTION_]  in _K_._SCHEMA_SET_:
+                log.error('BAD CONFIGURATION : schema_scan_option={}'.format(_V_ [_K_._SCHEMA_SCAN_OPTION_]))
+                ###raise 
+                sys.exit(0) ### 
+
+            _schema = _load_schema (data_source_root, _V_[_K_._SCHEMA_SCAN_OPTION_]) 
+
+        else:
+            log.warning('datasource <{}> NOT found!'.format(name))
+            return None
+
+    except KeyError as ke:
+        log.error('INTERNAL ERROR : 1 or more settings _SCHEMA_ key NOT DEFINED : pls check configuration & implementation')
+        log.error(str(ke))
+        ## raise
+        sys.exit(0)
+
+    except OSError as e:
+        log.error('OSError : {}'.format(e))
+
+        return None
+
+    _open_connections[ ds_name ] ['_SCHEMA_'] = _schema
+
+    log.debug('ds_schema = {}'.format(_schema)) 
+    log.info('<== leave {}()'.format(func_name))                                                          
+
+
+def load_schema_old (ds_name): 
+
+    func_name = sys._getframe().f_code.co_name                                                            
+    log.info('==> Running {}({})'.format(func_name, ds_name))                
+                                                                                                          
+    _K_ = _open_connections[ ds_name ] ['_KEYS_']                                                         
+    _V_ = _open_connections[ ds_name ] ['_SETTINGS_']                                                     
+
+    if '_SCHEMA_' in _open_connections[ ds_name ]:
+        log.waning('SCHEMA OVERRIDE...')
+
+    _schema = _open_connections[ ds_name ] ['_SCHEMA_'] = {}      ### empty SCHEMA 
+    #_schema = _open_connections[ ds_name ] ['_SCHEMA_']                                                     
+    data_source_root = _V_ [ _K_._DATASOURCE_ROOT_ ]                                                                  
+                                                                                                          
+    def _load_schema (path, scan_policy=None):
+#        
+#    args :
+#        path        : root dir to scan (ds_root)
+#        scan_policy : schema_ds_root_only | schema_all_subfolders_
+#
+#    return :
+#        dict (ds_schema)
 
         parent = tree = {} 
 
-        for node, _, _ in os.walk(path):                                                                      
-                                                                                                              
-            mappers = load_resource_mappers_ex ( get_file_items ( node, _V_ [ _K_._MAPPERS_PATTERN_STYLE_ ])) ###
-            log.info('->num. mappers: {}'.format(str(len(mappers))))                                               
+        for node, _, _ in os.walk(path): 
+
+            mappers = ingest_maps = load_resource_mappers_ex ( get_file_items ( node, _V_[_K_._INGEST_MAP_FILES_]))  # issue#2 : ex _MAPPERS_PATTERN_STYLE_ 
+
+            log.info('->tot ingest mappers : {}'.format(str(len(mappers))))                                               
             
             if not parent:                                                                                    
                 parent = tree[node] = { _V_ [ _K_._MAPS_ ] : mappers, 'parent': {}}                           
                 
                 if scan_policy == _V_ [ _K_._SCHEMA_DS_ROOT_ONLY_ ]:                                          
+
                     return tree
+                    # qui esce e non esegue table_defs sotto...
+                    # TBD modificare tree es. tree[node]['_INGEST_'] e tree[node]['_TABLES_']
+                    
             else:   
                 parent = get_parent(node, tree)                                                               
                 if parent:
                     tree[node] = { _V_ [ _K_._MAPS_ ] : mappers, 'parent': parent }                           
                 else:
                     tree[node] = { _V_ [ _K_._MAPS_ ] : mappers, 'parent': {}}                                
+
+            '''TBD
+
+            table_defs  = load_resource_mappers_ex ( get_file_items ( node, _V_[_K_._DATASET_MAP_FILES_]))  # issue#2
+
+            log.info('->tot table definitions : {}'.format(str(len(table_defs)))) 
+
+            if not parent:                                                                                    
+                parent = tree[node] = { _V_ [ _K_._TABLES_ ] : table_defs, 'parent': {}}
+                
+                if scan_policy == _V_ [ _K_._SCHEMA_DS_ROOT_ONLY_ ]:                                          
+                    return tree
+            else:   
+                parent = get_parent(node, tree)                                                               
+                if parent:
+                    tree[node] = { _V_ [  _K_._TABLES_ ] : table_defs, 'parent': parent }                           
+                else:
+                    tree[node] = { _V_ [ _K_._TABLES_ ] : table_defs, 'parent': {}}                                
+            '''
                     
         log.info('<== leave {}()'.format(func_name))                                                          
 
@@ -258,15 +379,13 @@ def load_schema (ds_name):
                 ###raise 
                 sys.exit(0) ### TBD
 
-            if _V_ [ _K_._SCHEMA_SCAN_OPTION_ ] == _V_ [ _K_._SCHEMA_DS_ROOT_ONLY_ ]:
+            _schema = _load_schema (data_source_root, _V_[_K_._SCHEMA_SCAN_OPTION_]) 
 
-                _scan_policy = _K_._SCHEMA_DS_ROOT_ONLY_
-
-            elif _V_ [ _K_._SCHEMA_SCAN_OPTION_ ] == _V_ [ _K_._SCHEMA_ALL_SUBFOLDERS_ ]:
-
-                _scan_policy = _K_._SCHEMA_ALL_SUBFOLDERS_
-
-            _schema = _load_schema (data_source_root, _scan_policy)                                                     
+#            if _V_ [ _K_._SCHEMA_SCAN_OPTION_ ] == _V_ [ _K_._SCHEMA_DS_ROOT_ONLY_ ]:
+#                _scan_policy = _K_._SCHEMA_DS_ROOT_ONLY_
+#            elif _V_ [ _K_._SCHEMA_SCAN_OPTION_ ] == _V_ [ _K_._SCHEMA_ALL_SUBFOLDERS_ ]:
+#                _scan_policy = _K_._SCHEMA_ALL_SUBFOLDERS_
+#            _schema = _load_schema (data_source_root, _scan_policy) 
 
         else:
             log.warning('datasource <{}> NOT found!'.format(name))
@@ -284,44 +403,42 @@ def load_schema (ds_name):
 
     _open_connections[ ds_name ] ['_SCHEMA_'] = _schema
 
-    #log.debug('+++++ SCHEMA ++++++')
-    #log.debug(_schema)
+    log.debug('+++++ SCHEMA ++++++')
+    log.debug(_schema)
     log.info('<== leave {}()'.format(func_name))                                                          
 
 
-''' NEW '''
-def check_schema_integrity (ds_name, key=None, schema=None, **other):
+@lru_cache(maxsize=64, typed=False)
+def check_schema_integrity (ds_name, key=None, schema=None, **other):   ### +par : soft=True (soft/hard ceck - invalidate cache)
 
     func_name = sys._getframe().f_code.co_name
     log.info('==> Running {}()'.format(func_name))
 
     _K_     = _open_connections[ ds_name ] ['_KEYS_']  
     _V_     = _open_connections[ ds_name ] ['_SETTINGS_'] 
-    schema  = _open_connections[ ds_name ] ['_SCHEMA_']
-    key     = _V_ [ _K_._DATASOURCE_ROOT_ ]
+
+    if not schema : schema  = _open_connections[ ds_name ] ['_SCHEMA_']     ## default
+    if not key    : key = _K_._TABLES_                                      ## default key for integrity ceck
     '''
-    log.debug ('_K_ = {}'.format(_K_))
-    log.debug ('_V_ = {}'.format(_V_))
-    log.debug ('schema = {}'.format(schema))
-    log.debug ('key = {}'.format(key))
+    log.debug ('_K_     = {}'.format(_K_))
+    log.debug ('_V_     = {}'.format(_V_))
+    log.debug ('schema  = {}'.format(schema))
+    log.debug ('key     = {}'.format(key))
 
     POLICY FLAG 1
     '''
     log.debug('_VERIFY_SCHEMA_INTEGRITY_ = {}'.format( _V_[ _K_._VERIFY_SCHEMA_INTEGRITY_]))
 
-    if _V_ [ _K_._VERIFY_SCHEMA_INTEGRITY_ ]:
-        if key and schema:
-            log.debug('KEY & SCHEMA')
-            if not key in schema:
-                log.debug('NOT KEY in SCHEMA')
-                return False
-        else: 
-            log.debug('NOT(KEY and SCHEMA) ==> bad params')
-            pass  
+    if bool (strtobool (_V_ [ _K_._VERIFY_SCHEMA_INTEGRITY_ ])):
+
+        if not key in schema:
+            log.debug('KEY <{}> NOT in SCHEMA'.format(str(key)))
+            return False
 
     '''
      POLICY FLAG 2...
     '''
+    log.info('...No more policy to check schema integrity')
     log.info('<== leave {}()'.format(func_name))
     return True
 
@@ -336,13 +453,15 @@ def _ingest (ds_name, _files):
     _V_     = _open_connections[ ds_name ] ['_SETTINGS_'] 
     _schema = _open_connections[ ds_name ] ['_SCHEMA_']
     '''
-    for i,/ (k, v) in enumerate(self.schema.items()):
+    for i, (k, v) in enumerate(self.schema.items()):
         print("index: {}, key: {}, value: {}".format(i, k, v))
     '''
-    if check_schema_integrity (ds_name, key=_V_ [ _K_._DATASOURCE_ROOT_], schema=_schema): 
+    #if check_schema_integrity (ds_name, key=_V_ [ _K_._DATASOURCE_ROOT_], schema=_schema): 
+    if check_schema_integrity (ds_name): 
     
-        _schema_root = _schema [ _V_ [ _K_._DATASOURCE_ROOT_ ] ]
-        _maps        = _schema_root [ _K_._MAPS_ ]  
+        #_schema_root = _schema [ _V_ [ _K_._DATASOURCE_ROOT_ ] ]
+        #_maps        = _schema_root [ _K_._MAPS_ ]  
+        _maps        = _schema [ _K_._MAPS_ ]  
         log.debug('_maps ------> {}'.format(_maps))
 
         _prepending_path_rex = '.+/' # necessaria poichè _files[x] = path/nome_file mentre la regex è relativa solo a nome_file
@@ -351,57 +470,128 @@ def _ingest (ds_name, _files):
         _mkt_dict   = {}
         _sym        = {}
 
-        _attr = '_ATTR_'
+        _attr           = '_ATTR_'
+        _parent         = '_PARENT_'
+        _value          = '_VAL_'
 
         for _map in _maps:
 
-            _regex  = _map [ _K_._INGEST_ ] [ _K_._FPATTERN_ ] # new
-            keys    = _map [ _K_._INGEST_ ] [ _K_._KEYMATCH_ ]  
-            _rec    = re.compile (_prepending_path_rex + _regex)
+            _regex      = _map [ _K_._INGEST_ ] [ _K_._FPATTERN_ ] # new
+            _rec        = re.compile (_prepending_path_rex + _regex)
+            keys        = _map [ _K_._INGEST_ ] [ _K_._KEYMATCH_ ]  ### keys associate al nomefile definite nel mapper file
+
+            keys_attr   = {}
+            for _, key in enumerate (keys): keys_attr [ key ] = _V_ [ key + str(_attr) ] ## ver. compatta senza log e indice
+#            try:
+#                for j, key in enumerate (keys):
+#                    log.debug('enumerate keys : {}, {}'.format(j, key))
+#                    keys_attr [ key ]   = _V_ [ key + str(_attr) ]
+#                    log.debug('keys_attr [ {} ] = <{}>'.format(key, keys_attr [ key]))
+#            except KeyError as e:
+#                log.warning('WARNING : {}'.format(e))
 
             _data_mapper    = {}
+
+#           try:
+#               while validate_keys(_files.pop()):  ### raise NoFile
+#                   _ingest_data()
+#               else:
+#                   log.warning('invalid keys definition for file')
+#           except NoFile :
+#               total time to process nnn _files is xxxx
 
             for k, fn in enumerate (_files):
 
                 _match = _rec.match (fn)
-
                 if _match is not None:
 
                     log.debug('<{}> is a VALID ingest file'.format(fn))
                     _market = _symbol = _timeframe = _timestamp = None      ### KEYS
 
                     '''
-                    RICERCA DELLE KEYS NEL NOMEFILE
+                    LETTURA KEY-VALUE DAL NOMEFILE
                     '''
                     for j, key in enumerate (keys):
 
-                        _val     = _match.group(j+1) # valore
-                        ''' key attributes '''
-                        key_attr = _V_ [ key + str(_attr) ]
-                        ''' update data mapper'''
-                        _data_mapper [ key ] = []       ### key can be: @MKT, @SYM, @timeframe, @timestamp
-                        _data_mapper [ key ].append(_val)
+                        _maybe  = ()
+                        _val    = _match.group(j+1)        # valore
 
-                        log.debug('KEY/val/attr : {}/{}/{}'.format(key, _val, key_attr))
+                        #log.debug ('BUG HERE! --> keys_attr [key] = {}'.format(keys_attr[key]))
+                        #for i, v in enumerate(keys_attr):
+                        #    log.debug('--> {} : {}'.format(i, v))
 
-                        if key == '@MKT':
+                        if _K_._IS_NODE_ in keys_attr [ key ]:
+                            '''
+                            NB. in questa fase - retrieve dei valori delle keys presenti nel nome file - le keys con attributo _IS_NODE_
+                            vengono allocate regolarmente nella struttura di data_mapping (ad es. MKT o SYM)
+                            '''
+                            log.debug('{} key is a node key!'.format(key))
 
-                            _market = _match.group(j+1) # valore
-                            if _market not in _idx:
+                            _data_mapper [ key ] = []  
+                            _data_mapper [ key ].append({'_PARENT_KEY_':None, '_VALUE_':_val})
 
-                                _mkt_dict = _idx[_market]   = {}
-                                #_mkt_dict       = _idx[_market]
+                        else:
+                            _maybe = key, {'_PARENT_KEY_':None, '_VALUE_':_val}
 
-                        elif key == '@SYM':
-                            pass
+                            log.debug('maybe : <{}> <{}>'.format(key, _maybe[-1]))
 
-                        elif key == '@timeframe':
-                            pass
 
-                        elif key == '@timestamp':
-                            _timestamp = _match.group(j+1) # valore
+                        if _K_._HAS_PARENT_ in keys_attr [ key ]:
+                            '''
+                            NB. in questa fase - retreive dei valori delle keys presenti nel nome file - non è necessario
+                            verificare la presenza dell'elemento parent key (ad es. SYM x la key timestamp), ciò significa che 
+                            tale key (ad es. timestamp) potrà essere anche associata successivamente ai data point (in quanto viene 
+                            comunque salvato nella sessione di data_mapping relativa al file) più verosimilmente cmq troveremo
+                            di nuovo la stessa key nei data point stessi e pertanto verranno utilizzati i relativi valori presi
+                            dal datapoint
+                            '''
+                            parent_key = _V_ [ key + str(_parent) ] 
 
-                    log.info('Keys founded in file : market = {}, timestamp = {}'.format(_market, _timestamp))
+                            log.debug('<{}> key has parent key <{}>'.format(key, parent_key))
+
+                            if parent_key in _data_mapper:
+                                if _maybe:
+                                    #_maybe[-1][_value] = _data_mapper [ parent_key ]
+                                    _maybe[-1]['_PARENT_KEY_'] = _data_mapper [ parent_key ]
+                                else:
+                                    _data_mapper [ key ]['_PARENT_KEY_'] = _data_mapper [ parent_key ]
+
+                                log.debug('_HAS_PARENT_ attr set for key <{}> & PARENT KEY available during file name analisys!'.format(key))
+                                log.debug('_data_mapper = {}'.format(_data_mapper))
+                                log.debug('_maybe = {}'.format(_maybe))
+
+                            else:
+                                log.debug('_HAS_PARENT_ attr set for key <{}> & NO PARENT KEY found during file name analisys!'.format(key))
+
+                        log.debug ('_data_mapper = {}'.format(_data_mapper))
+
+                        # update data mapper
+                        #
+                        #_data_mapper [ key ] = []       ### key can be: @MKT, @SYM, @timeframe, @timestamp
+                        #_data_mapper [ key ].append(_val)
+
+                        log.debug('KEY/val/attr : {}/{}/{}'.format(key, _val, keys_attr[key]))
+
+                        # OLD #
+#                        if key == '@MKT':
+#
+#                            _market = _match.group(j+1) # valore
+#                            if _market not in _idx:
+#
+#                                _mkt_dict = _idx[_market]   = {}
+#                                #_mkt_dict       = _idx[_market]
+#
+#                        elif key == '@SYM':
+#                            pass
+#
+#                        elif key == '@timeframe':
+#                            pass
+#
+#                        elif key == '@timestamp':
+#                            _timestamp = _match.group(j+1) # valore
+                        # OLD END #
+
+                    #log.info('Keys founded in file : market = {}, timestamp = {}'.format(_market, _timestamp))
                     log.debug('we proced to analyze file content...')
 
                     fields      = _map [ _K_._INGEST_ ] [ _K_._FFORMAT_ ]
@@ -434,12 +624,26 @@ def _ingest (ds_name, _files):
 #                        log.debug ('_mkt_dict : {} -> {}'.format(k, _map))
 
                 else:
-                    log.warning('<{}> is a NOT VALID ingest file'.format(fn))
+                    log.warning('<{}> is NOT a VALID ingest file'.format(fn))
     else:
-        log.error('check_schema_integrity : FALSE (bad keys/not found / internal error')
+        log.error('check_schema_integrity -> FALSE (bad keys/ not found / internal error or bad configuration')
         ###raise
 
     log.info('<== leave {}()'.format(func_name))
+
+
+def _ingest_data():
+    pass
+
+def validate_keys(f):
+    pass
+    # load keys from filename
+    # open f
+    # header = f.readline()     # itertools.islice
+    # load keys from header
+    # if keys are OK:
+    #   return f ### handle for _ingest_data()
+    # else
 
 
 def iskey (field):

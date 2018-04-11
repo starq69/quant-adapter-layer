@@ -16,7 +16,7 @@ def merge_settings (global_settings, configuration, section=None): ###TBD: inglo
             print(each_val)
     '''
     def set_val (default, configured):
-        log.debug('enter set_val()')
+        #log.debug('enter set_val()')
         try:
             if type (default) is list:
                 # se non vuoto (configured=)
