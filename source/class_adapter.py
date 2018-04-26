@@ -68,7 +68,7 @@ class Connection(object):
         model   = _models[self.model]
         ds      = self.datasource
 
-        model.init (self.ds_run_settings, ds_global_settings) 
+        model.init (self.ds_run_settings, ds_global_settings) ### qui posso passare anche dei callable che poi verranno associati alle keys nell'implementazione del model
 
         #model.registerConnection(ds) ###TBD: new name: load_datasource
         model.load_schema(ds)  
@@ -133,6 +133,7 @@ class Connection(object):
 
             except OSError as e:
                 pass
+                ''' TBD: se resource non è una directory o un file... verificare se è un dizionario di keys'''
         else:
             try:
                 if _V_ [ _K_._SCHEMA_SCAN_OPTION_ ] != _K_._SCHEMA_DS_ROOT_ONLY_:

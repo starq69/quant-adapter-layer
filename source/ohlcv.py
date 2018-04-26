@@ -203,14 +203,16 @@ def load_schema (ds_name):
     func_name = sys._getframe().f_code.co_name                                                            
     log.info('==> Running {}({})'.format(func_name, ds_name))                
                                                                                                           
-    _K_ = _open_connections[ ds_name ] ['_KEYS_']                                                         
-    _V_ = _open_connections[ ds_name ] ['_SETTINGS_']                                                     
+    _K_                 = _open_connections[ ds_name ] ['_KEYS_']                                                         
+    _V_                 = _open_connections[ ds_name ] ['_SETTINGS_']                                                     
+    data_source_root    = _V_ [ _K_._DATASOURCE_ROOT_ ]                                                                  
 
-    if '_SCHEMA_' in _open_connections[ ds_name ]:
+    if '_SCHEMA_' in _open_connections [ ds_name ]:
         log.waning('SCHEMA OVERRIDE!')
 
+    # always override
     _schema = _open_connections[ ds_name ] ['_SCHEMA_'] = {}      ### empty SCHEMA 
-    data_source_root = _V_ [ _K_._DATASOURCE_ROOT_ ]                                                                  
+
                                                                                                           
     def _load_schema (path, scan_policy=None):
 #        
@@ -224,27 +226,36 @@ def load_schema (ds_name):
 
         if scan_policy == _V_ [ _K_._SCHEMA_DS_ROOT_ONLY_ ]:
 
-            tree = {_K_._TABLES_: [], _K_._MAPS_: []}
+            _tree = {_K_._TABLES_: [], _K_._MAPS_: []}
 
-            table_defs  = load_resource_mappers_ex ( get_file_items ( path, _V_[_K_._DATASET_MAP_FILES_]))  # issue#2
+            table_defs  = validate_tables ( load_resource_mappers_ex ( get_file_items ( path, _V_[_K_._DATASET_MAP_FILES_])))  # issue#2
             if not table_defs:
                 log.error('NO TABLE DEFINITIONS FOUND! Pls check datasource configuration. ABORT')
                 sys.exit(1)
-            log.info('->tot table definitions : {}'.format(str(len(table_defs)))) 
-            tree [_K_._TABLES_] = table_defs
+            log.info('->tot. tables (list of dict : key=table_name, value=table_definition) = {}'.format(str(len(table_defs)))) 
+
+            _tree [_K_._TABLES_] = table_defs
+
+            log.info('->tables : {}'.format(_tree[_K_._TABLES_])) 
+
 
             # issue#2 : ex _MAPPERS_PATTERN_STYLE_ 
             ingest_maps = load_resource_mappers_ex ( get_file_items ( path, _V_[_K_._INGEST_MAP_FILES_]))
             if not ingest_maps:
                 log.error('NO INGEST MAPPERS FOUND! Pls check datasource configuration. ABORT')
                 sys.exit(1)
-            log.info('->tot ingest mappers : {}'.format(str(len(ingest_maps)))) 
-            tree[_K_._MAPS_] = ingest_maps
+            log.info('->tot ingest mappers = {}'.format(str(len(ingest_maps)))) 
+
+            # TBD
+            #ingest_maps = validate_ingest_maps (ingest_maps)
+            _tree[_K_._MAPS_] = ingest_maps
+            log.info('->ingest mappers : {}'.format(_tree[_K_._MAPS_])) 
+
 
         elif scan_policy == _V_ [ _K_.SCHEMA_ALL_SUBFOLDERS_]:
 
-            parent = tree = {}
-            tree = {_K_._TABLES_: [], _K_._MAPS_: {}}
+            parent = _tree = {}
+            _tree = {_K_._TABLES_: [], _K_._MAPS_: {}}
 
             for node, _, _ in os.walk(path): 
 
@@ -252,29 +263,29 @@ def load_schema (ds_name):
                 log.info('->tot ingest mappers : {}'.format(str(len(ingest_maps)))) 
                 
                 if not parent:                                                                                    
-                    parent = tree[_K_._MAPS_][node] = { _V_ [ _K_._MAPS_ ] : mappers, 'parent': {}}                           
+                    parent = _tree[_K_._MAPS_][node] = { _V_ [ _K_._MAPS_ ] : mappers, 'parent': {}}                           
                     
                 else:   
-                    parent = get_parent(node, tree)                                                               
+                    parent = get_parent(node, _tree)                                                               
                     if parent:
-                        tree[_K_._MAPS_][node] = { _V_ [ _K_._MAPS_ ] : mappers, 'parent': parent }                           
+                        _tree[_K_._MAPS_][node] = { _V_ [ _K_._MAPS_ ] : mappers, 'parent': parent }                           
                     else:
-                        tree[_K_._MAPS_][node] = { _V_ [ _K_._MAPS_ ] : mappers, 'parent': {}}                                
+                        _tree[_K_._MAPS_][node] = { _V_ [ _K_._MAPS_ ] : mappers, 'parent': {}}                                
 
                 table_defs  = load_resource_mappers_ex ( get_file_items ( node, _V_[_K_._DATASET_MAP_FILES_]))  # issue#2
                 log.info('->tot table definitions : {}'.format(str(len(table_defs)))) 
-                tree [_K_._TABLES_] += table_defs
+                _tree [_K_._TABLES_] += table_defs
                     
         log.info('<== leave {}()'.format(func_name))                                                          
 
-        return tree
+        return _tree
 
     try:
         if (os.path.isdir(data_source_root)):
 
             if  not _V_ [_K_._SCHEMA_SCAN_OPTION_]  in _K_._SCHEMA_SET_:
                 log.error('BAD CONFIGURATION : schema_scan_option={}'.format(_V_ [_K_._SCHEMA_SCAN_OPTION_]))
-                ###raise 
+                ###TBD :raise 
                 sys.exit(0) ### 
 
             _schema = _load_schema (data_source_root, _V_[_K_._SCHEMA_SCAN_OPTION_]) 
@@ -298,6 +309,42 @@ def load_schema (ds_name):
 
     log.debug('ds_schema = {}'.format(_schema)) 
     log.info('<== leave {}()'.format(func_name))                                                          
+
+
+def validate_tables(tables):
+    '''
+    in  :   list of dict [{key=tablename, value=[list of fields]}]
+    out :   the same list of dict with less or equal items 
+
+    check : duplicate #tablenames 
+            [keys] not empty
+            [fields] not empty
+            
+    vedere : https://stackoverflow.com/questions/1207406/how-to-remove-items-from-a-list-while-iterating
+    '''
+    _tables = []
+    _names  = []
+
+    for i, table in enumerate(tables):
+        for _, (t_name, t_definition) in enumerate (table.items()):
+
+            if ('keys' not in t_definition) or ('fields' not in t_definition):
+                log.warning('INVALID table definition : keys or fields NOT defined : DISCARD')
+                continue
+
+            if t_name not in _names:
+                _names.append(t_name)
+                log.info('VALID table found : {}'.format(t_name))
+                _tables.append(table)
+            else:
+                log.error('DUPLICATE table definition : {} - pls resolve this problem, ABORT'.format(t_name))
+                sys.exit(1)
+
+    return _tables
+
+
+def validate_ingest_maps (ingest_maps):
+    pass
 
 
 def load_schema_old (ds_name): 
@@ -324,7 +371,7 @@ def load_schema_old (ds_name):
 #    return :
 #        dict (ds_schema)
 
-        parent = tree = {} 
+        parent = tree = {} ###!
 
         for node, _, _ in os.walk(path): 
 
@@ -409,7 +456,7 @@ def load_schema_old (ds_name):
 
 
 @lru_cache(maxsize=64, typed=False)
-def check_schema_integrity (ds_name, key=None, schema=None, **other):   ### +par : soft=True (soft/hard ceck - invalidate cache)
+def check_schema_integrity (ds_name, key=None, schema=None, **other):   ### +par : soft=True (soft/hard check - invalidate cache?)
 
     func_name = sys._getframe().f_code.co_name
     log.info('==> Running {}()'.format(func_name))
@@ -440,6 +487,7 @@ def check_schema_integrity (ds_name, key=None, schema=None, **other):   ### +par
     '''
     log.info('...No more policy to check schema integrity')
     log.info('<== leave {}()'.format(func_name))
+
     return True
 
 
@@ -462,7 +510,7 @@ def _ingest (ds_name, _files):
         #_schema_root = _schema [ _V_ [ _K_._DATASOURCE_ROOT_ ] ]
         #_maps        = _schema_root [ _K_._MAPS_ ]  
         _maps        = _schema [ _K_._MAPS_ ]  
-        log.debug('_maps ------> {}'.format(_maps))
+        #log.debug('_maps ------> {}'.format(_maps))
 
         _prepending_path_rex = '.+/' # necessaria poichè _files[x] = path/nome_file mentre la regex è relativa solo a nome_file
 
@@ -504,6 +552,7 @@ def _ingest (ds_name, _files):
 
                 _match = _rec.match (fn)
                 if _match is not None:
+                    ''' VALID INGEST FILE/RESOURCE'''
 
                     log.debug('<{}> is a VALID ingest file'.format(fn))
                     _market = _symbol = _timeframe = _timestamp = None      ### KEYS
@@ -601,7 +650,7 @@ def _ingest (ds_name, _files):
                         #rows    = f.read().splitlines()
                         #header  = rows.pop(0)
 
-                        header = f.readline()
+                        header = f.readline().rstrip()
                         # TEST header for keys....:ok
                         rows = f.read().splitlines()
                         # ko : warning + continue   ###
@@ -634,6 +683,17 @@ def _ingest (ds_name, _files):
 
 def _ingest_data():
     pass
+
+def _select(query):
+    #TBD:  first pass validation query
+    _not_stored = _not_cached = True
+    if _not_cached: 
+        if _not_stored:
+            data = _ingest(query)
+            if not data:
+                return False
+    return data
+
 
 def validate_keys(f):
     pass
