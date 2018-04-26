@@ -228,7 +228,7 @@ def load_schema (ds_name):
 
             _tree = {_K_._TABLES_: [], _K_._MAPS_: []}
 
-            table_defs  = validate_tables ( load_resource_mappers_ex ( get_file_items ( path, _V_[_K_._DATASET_MAP_FILES_])))  # issue#2
+            table_defs, table_names  = validate_tables ( load_resource_mappers_ex ( get_file_items ( path, _V_[_K_._DATASET_MAP_FILES_])))  # issue#2
             if not table_defs:
                 log.error('NO TABLE DEFINITIONS FOUND! Pls check datasource configuration. ABORT')
                 sys.exit(1)
@@ -240,15 +240,14 @@ def load_schema (ds_name):
 
 
             # issue#2 : ex _MAPPERS_PATTERN_STYLE_ 
-            ingest_maps = load_resource_mappers_ex ( get_file_items ( path, _V_[_K_._INGEST_MAP_FILES_]))
+            ingest_maps = validate_ingest_maps ( load_resource_mappers_ex ( get_file_items ( path, _V_[_K_._INGEST_MAP_FILES_])), table_names)
             if not ingest_maps:
-                log.error('NO INGEST MAPPERS FOUND! Pls check datasource configuration. ABORT')
-                sys.exit(1)
+                log.error('NO INGEST MAPPERS FOUND! Pls check ingest mappers configuration files...') #. ABORT')
+                #sys.exit(1)
             log.info('->tot ingest mappers = {}'.format(str(len(ingest_maps)))) 
 
-            # TBD
-            #ingest_maps = validate_ingest_maps (ingest_maps)
             _tree[_K_._MAPS_] = ingest_maps
+
             log.info('->ingest mappers : {}'.format(_tree[_K_._MAPS_])) 
 
 
@@ -325,11 +324,14 @@ def validate_tables(tables):
     _tables = []
     _names  = []
 
-    for i, table in enumerate(tables):
+    for i, table in enumerate (tables):
         for _, (t_name, t_definition) in enumerate (table.items()):
 
-            if ('keys' not in t_definition) or ('fields' not in t_definition):
-                log.warning('INVALID table definition : keys or fields NOT defined : DISCARD')
+            if ('keys' not in t_definition) or (not t_definition ['keys']):
+                log.warning('INVALID table definition {} : keys not found: DISCARD'.format(t_name))
+                continue
+            elif ('fields' not in t_definition) or (not t_definition ['fields']):
+                log.warning('INVALID table definition {} : fields NOT found: DISCARD'.format(t_name))
                 continue
 
             if t_name not in _names:
@@ -340,119 +342,36 @@ def validate_tables(tables):
                 log.error('DUPLICATE table definition : {} - pls resolve this problem, ABORT'.format(t_name))
                 sys.exit(1)
 
-    return _tables
+    return _tables, _names
 
 
-def validate_ingest_maps (ingest_maps):
-    pass
+def validate_ingest_maps (ingest_maps, tables):
+    
+    _maps   = []
+    _checks = []
+    for i, _map in enumerate (ingest_maps):
+        for _, (i_name, i_definition) in enumerate (_map.items()):
 
+            if ('table' not in i_definition) or (not i_definition ['table']):
+                log.warning('INVALID mapper definition {} : table not specified : DISCARD'.format(i_name))
+                continue
 
-def load_schema_old (ds_name): 
+            if i_definition ['table'] not in tables:
+                log.warning('INVALID mapper definition {} : table not found in datasource SCHEMA : DISCARD'.format(i_name))
+                continue
 
-    func_name = sys._getframe().f_code.co_name                                                            
-    log.info('==> Running {}({})'.format(func_name, ds_name))                
-                                                                                                          
-    _K_ = _open_connections[ ds_name ] ['_KEYS_']                                                         
-    _V_ = _open_connections[ ds_name ] ['_SETTINGS_']                                                     
+            if ('fpattern' not in i_definition) or (not i_definition ['fpattern']):
+                log.warning('INVALID mapper definition {} : file pattern (fpattern) not specified : DISCARD'.format(i_name))
 
-    if '_SCHEMA_' in _open_connections[ ds_name ]:
-        log.waning('SCHEMA OVERRIDE...')
+            _check = str(i_definition ['fpattern']) + str(i_definition ['table'])
+            if _check not in _checks:
+                _checks.append(_check)
+                _maps.append(_map)
+            else:
+                log.error('DUPLICATE ingest mapper definition : "{}" found on {} - pls resolve this problem, ABORT'.format(_check, i_name))
+                sys.exit(1)
 
-    _schema = _open_connections[ ds_name ] ['_SCHEMA_'] = {}      ### empty SCHEMA 
-    #_schema = _open_connections[ ds_name ] ['_SCHEMA_']                                                     
-    data_source_root = _V_ [ _K_._DATASOURCE_ROOT_ ]                                                                  
-                                                                                                          
-    def _load_schema (path, scan_policy=None):
-#        
-#    args :
-#        path        : root dir to scan (ds_root)
-#        scan_policy : schema_ds_root_only | schema_all_subfolders_
-#
-#    return :
-#        dict (ds_schema)
-
-        parent = tree = {} ###!
-
-        for node, _, _ in os.walk(path): 
-
-            mappers = ingest_maps = load_resource_mappers_ex ( get_file_items ( node, _V_[_K_._INGEST_MAP_FILES_]))  # issue#2 : ex _MAPPERS_PATTERN_STYLE_ 
-
-            log.info('->tot ingest mappers : {}'.format(str(len(mappers))))                                               
-            
-            if not parent:                                                                                    
-                parent = tree[node] = { _V_ [ _K_._MAPS_ ] : mappers, 'parent': {}}                           
-                
-                if scan_policy == _V_ [ _K_._SCHEMA_DS_ROOT_ONLY_ ]:                                          
-
-                    return tree
-                    # qui esce e non esegue table_defs sotto...
-                    # TBD modificare tree es. tree[node]['_INGEST_'] e tree[node]['_TABLES_']
-                    
-            else:   
-                parent = get_parent(node, tree)                                                               
-                if parent:
-                    tree[node] = { _V_ [ _K_._MAPS_ ] : mappers, 'parent': parent }                           
-                else:
-                    tree[node] = { _V_ [ _K_._MAPS_ ] : mappers, 'parent': {}}                                
-
-            '''TBD
-
-            table_defs  = load_resource_mappers_ex ( get_file_items ( node, _V_[_K_._DATASET_MAP_FILES_]))  # issue#2
-
-            log.info('->tot table definitions : {}'.format(str(len(table_defs)))) 
-
-            if not parent:                                                                                    
-                parent = tree[node] = { _V_ [ _K_._TABLES_ ] : table_defs, 'parent': {}}
-                
-                if scan_policy == _V_ [ _K_._SCHEMA_DS_ROOT_ONLY_ ]:                                          
-                    return tree
-            else:   
-                parent = get_parent(node, tree)                                                               
-                if parent:
-                    tree[node] = { _V_ [  _K_._TABLES_ ] : table_defs, 'parent': parent }                           
-                else:
-                    tree[node] = { _V_ [ _K_._TABLES_ ] : table_defs, 'parent': {}}                                
-            '''
-                    
-        log.info('<== leave {}()'.format(func_name))                                                          
-
-        return tree
-
-    try:
-        if (os.path.isdir(data_source_root)):
-
-            if  not _V_ [_K_._SCHEMA_SCAN_OPTION_]  in _K_._SCHEMA_SET_:
-                log.error('BAD CONFIGURATION : schema_scan_option={}'.format(_V_ [_K_._SCHEMA_SCAN_OPTION_]))
-                ###raise 
-                sys.exit(0) ### TBD
-
-            _schema = _load_schema (data_source_root, _V_[_K_._SCHEMA_SCAN_OPTION_]) 
-
-#            if _V_ [ _K_._SCHEMA_SCAN_OPTION_ ] == _V_ [ _K_._SCHEMA_DS_ROOT_ONLY_ ]:
-#                _scan_policy = _K_._SCHEMA_DS_ROOT_ONLY_
-#            elif _V_ [ _K_._SCHEMA_SCAN_OPTION_ ] == _V_ [ _K_._SCHEMA_ALL_SUBFOLDERS_ ]:
-#                _scan_policy = _K_._SCHEMA_ALL_SUBFOLDERS_
-#            _schema = _load_schema (data_source_root, _scan_policy) 
-
-        else:
-            log.warning('datasource <{}> NOT found!'.format(name))
-            return None
-
-    except KeyError as ke:
-        log.error('INTERNAL ERROR : 1 or more settings _SCHEMA_ key NOT DEFINED : pls check configuration & implementation')
-        log.error(str(ke))
-        sys.exit(0)
-
-    except OSError as e:
-        log.error('OSError : {}'.format(e))
-
-        return None
-
-    _open_connections[ ds_name ] ['_SCHEMA_'] = _schema
-
-    log.debug('+++++ SCHEMA ++++++')
-    log.debug(_schema)
-    log.info('<== leave {}()'.format(func_name))                                                          
+    return _maps
 
 
 @lru_cache(maxsize=64, typed=False)
@@ -522,11 +441,18 @@ def _ingest (ds_name, _files):
         _parent         = '_PARENT_'
         _value          = '_VAL_'
 
+        _num_maps       = 0
+
         for _map in _maps:
 
-            _regex      = _map [ _K_._INGEST_ ] [ _K_._FPATTERN_ ] # new
+            _ingest_map_name = list(_map.keys()).pop()
+            print (_ingest_map_name)
+
+            _regex      = _map [ _ingest_map_name ] [ _K_._FPATTERN_ ] # new
+            #_regex      = _map [ _K_._INGEST_ ] [ _K_._FPATTERN_ ] # new
             _rec        = re.compile (_prepending_path_rex + _regex)
-            keys        = _map [ _K_._INGEST_ ] [ _K_._KEYMATCH_ ]  ### keys associate al nomefile definite nel mapper file
+            #keys        = _map [ _K_._INGEST_ ] [ _K_._KEYMATCH_ ]  ### keys associate al nomefile definite nel mapper file
+            keys        = _map [ _ingest_map_name ] [ _K_._KEYMATCH_ ]  ### keys associate al nomefile definite nel mapper file
 
             keys_attr   = {}
             for _, key in enumerate (keys): keys_attr [ key ] = _V_ [ key + str(_attr) ] ## ver. compatta senza log e indice
@@ -643,8 +569,10 @@ def _ingest (ds_name, _files):
                     #log.info('Keys founded in file : market = {}, timestamp = {}'.format(_market, _timestamp))
                     log.debug('we proced to analyze file content...')
 
-                    fields      = _map [ _K_._INGEST_ ] [ _K_._FFORMAT_ ]
-                    separator   = _map [ _K_._INGEST_ ] [ _K_._SEPARATOR_ ]
+                    #fields      = _map [ _K_._INGEST_ ] [ _K_._FFORMAT_ ]
+                    fields      = _map [ _ingest_map_name ] [ _K_._FFORMAT_ ]
+                    #separator   = _map [ _K_._INGEST_ ] [ _K_._SEPARATOR_ ]
+                    separator   = _map [ _ingest_map_name ] [ _K_._SEPARATOR_ ]
 
                     with open(fn, 'r') as f:
                         #rows    = f.read().splitlines()
@@ -668,12 +596,30 @@ def _ingest (ds_name, _files):
                                     #log.debug('key {} found : {}'.format(fields[i], field))
 
                         log.debug('tot data rows = {}'.format(len(rows)))
+
+                    '''TBD
+                    manage policy to implement one-pass ingest file elaboration or not
+                    in pratica il policy flag definisce se si debba impedire o meno che i files di dati una volta elaborati possano essere rielaborati con il successivo mappers
+                    if ONE_PASS:
+                        ...
+                    '''
+                    
                     
 #                    for k, _map in sorted(_mkt_dict.items()):
 #                        log.debug ('_mkt_dict : {} -> {}'.format(k, _map))
 
+
                 else:
                     log.warning('<{}> is NOT a VALID ingest file'.format(fn))
+
+            _num_maps += 1
+
+        else:
+            if _num_maps:
+                log.info('(found {} mappers)'.format(_num_maps))
+            else:
+                log.warning('No mappers found : skip ingest'.format(_num_maps))
+
     else:
         log.error('check_schema_integrity -> FALSE (bad keys/ not found / internal error or bad configuration')
         ###raise
