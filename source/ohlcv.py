@@ -131,6 +131,9 @@ def load_resource_mappers_ex (mappers, path=None):
             with open(fn) as json_mapper:
                 try:
                     dict_mapper = json.load (json_mapper)
+                    # aggiunge il nome file (dict_mapper ha sempre una sola key che corrisponde al nome 'logico' della risorsa)
+                    dict_mapper [ list (dict_mapper) [0]] ['full-resource-name']    = str(f)
+                    dict_mapper [ list (dict_mapper) [0]] ['resource-name']         = str(os.path.basename(f))
                     _list_dict_mappers.append (dict_mapper)
 
                 except json.JSONDecodeError as e:
@@ -215,52 +218,48 @@ def load_schema (ds_name):
 
                                                                                                           
     def _load_schema (path, scan_policy=None):
-#        
-#    args :
-#        path        : root dir to scan (ds_root)
-#        scan_policy : schema_ds_root_only | schema_all_subfolders_
-#
-#    return :
-#        dict (ds_schema)
+        '''
+        args :
+            path        : root dir to scan (ds_root)
+            scan_policy : schema_ds_root_only | schema_all_subfolders_
 
-
+        return :
+            dict (ds_schema)
+        '''
         if scan_policy == _V_ [ _K_._SCHEMA_DS_ROOT_ONLY_ ]:
 
-            #_tree = {_K_._TABLES_: [], _K_._MAPS_: []}
             _tree = {_K_._TABLES_: {}, _K_._MAPS_: {}}
 
-            t_definitions, t_names  = validate_tables ( load_resource_mappers_ex ( get_file_items ( path, _V_[_K_._DATASET_MAP_FILES_])))  # issue#2
+            t_definitions, t_names = validate_tables ( load_resource_mappers_ex ( get_file_items ( path, _V_[_K_._DATASET_MAP_FILES_])))  # issue#2
             if not t_definitions:
                 log.error('NO TABLE DEFINITIONS FOUND! Pls check datasource configuration. ABORT')
                 sys.exit(1)
-            log.info('->tot. tables (list of dict : key=table_name, value=table_definition) = {}'.format(str(len(t_definitions)))) 
+            log.info('->valid datasource tables = {}'.format(t_names)) 
 
             _tree [_K_._TABLES_] = t_definitions
-
-            log.info('->tables : {}'.format(_tree[_K_._TABLES_])) 
-
+            #log.info('->tables : {}'.format(_tree[_K_._TABLES_])) 
 
             # issue#2 : ex _MAPPERS_PATTERN_STYLE_ 
             ingest_maps = validate_ingest_maps ( load_resource_mappers_ex ( get_file_items ( path, _V_[_K_._INGEST_MAP_FILES_])), t_names, t_definitions)
             if not ingest_maps:
-                log.error('NO INGEST MAPPERS FOUND! Pls check ingest mappers configuration files...') #. ABORT')
+                log.error('NO VALID INGEST MAPPERS FOUND! (ingestion is disabled for this session) Pls check ingest mappers definition files and try again.') #. ABORT')
                 #sys.exit(1)
-            log.info('->tot ingest mappers = {}'.format(str(len(ingest_maps)))) 
-
-            _tree[_K_._MAPS_] = ingest_maps
-
-            log.info('->ingest mappers : {}'.format(_tree[_K_._MAPS_])) 
-
+            else:
+                _tree[_K_._MAPS_] = ingest_maps
+                log.info('->tot ingest mappers found : {}'.format(len(ingest_maps))) 
+                log.debug('->ingest mappers : {}'.format(_tree[_K_._MAPS_])) 
 
         elif scan_policy == _V_ [ _K_.SCHEMA_ALL_SUBFOLDERS_]:
-
+            # not yet implemented
+            pass
+            '''
             parent = _tree = {}
             _tree = {_K_._TABLES_: [], _K_._MAPS_: {}}
 
             for node, _, _ in os.walk(path): 
 
                 ingest_maps = load_resource_mappers_ex ( get_file_items ( node, _V_[_K_._INGEST_MAP_FILES_]))  # issue#2 : ex _MAPPERS_PATTERN_STYLE_ 
-                log.info('->tot ingest mappers : {}'.format(str(len(ingest_maps)))) 
+                log.info('->tot ingest mappers found : {}'.format(str(len(ingest_maps)))) 
                 
                 if not parent:                                                                                    
                     parent = _tree[_K_._MAPS_][node] = { _V_ [ _K_._MAPS_ ] : mappers, 'parent': {}}                           
@@ -275,7 +274,7 @@ def load_schema (ds_name):
                 t_definitions  = load_resource_mappers_ex ( get_file_items ( node, _V_[_K_._DATASET_MAP_FILES_]))  # issue#2
                 log.info('->tot table definitions : {}'.format(str(len(t_definitions)))) 
                 _tree [_K_._TABLES_] += t_definitions
-                    
+            '''
         log.info('<== leave {}()'.format(func_name))                                                          
 
         return _tree
@@ -291,7 +290,7 @@ def load_schema (ds_name):
             _schema = _load_schema (data_source_root, _V_[_K_._SCHEMA_SCAN_OPTION_]) 
 
         else:
-            log.warning('datasource <{}> NOT found!'.format(name))
+            log.error('datasource <{}> NOT found!'.format(name))
             return None
 
     except KeyError as ke:
@@ -311,7 +310,7 @@ def load_schema (ds_name):
     log.info('<== leave {}()'.format(func_name))                                                          
 
 
-def validate_tables(resource_mappers):
+def validate_tables (resource_mappers):
     '''
     in  :   list of dict [{key=tablename, value=[list of fields]}]
     out :   a dict with less or equal items 
@@ -322,41 +321,34 @@ def validate_tables(resource_mappers):
             
     vedere : https://stackoverflow.com/questions/1207406/how-to-remove-items-from-a-list-while-iterating
     '''
-    #_tables = []
     _tables = {}
     _names  = []
+    #_msg    = 'INVALID table definition : '  
 
     for i, table in enumerate (resource_mappers):
         for _, (t_name, t_definition) in enumerate (table.items()):
 
+            _resource = t_definition ['resource-name']
+
             if ('keys' not in t_definition) or (not t_definition ['keys']):
-                log.warning('INVALID table definition {} : keys not found: DISCARD'.format(t_name))
+                log.warning('<{}> keys not found in table <{}> (DISCARD)'.format(_resource, t_name))
                 continue
             elif ('fields' not in t_definition) or (not t_definition ['fields']):
-                log.warning('INVALID table definition {} : fields NOT found: DISCARD'.format(t_name))
+                log.warning('<{}> fields not found in table <{}> (DISCARD)'.format(_resource, t_name))
                 continue
 
             if t_name not in _names:
                 _names.append(t_name)
-                log.info('VALID table found : {}'.format(t_name))
-                #_tables.append(table)
+                log.info('<{}> define a valid table <{}>'.format(_resource, t_name))
                 _tables [ t_name ] = t_definition
             else:
-                log.error('DUPLICATE table definition : {} - pls resolve this problem, ABORT'.format(t_name))
+                log.error('DUPLICATE table definition : {} - pls resolve this problem (ABORT)'.format(t_name))
                 sys.exit(1)
 
     return _tables, _names
 
 
 def get_table_keys (table_name, t_definitions):
-
-#    for i, table in enumerate (t_definitions):
-#        for _, (t_name, t_definition) in enumerate (table.items()):
-#            if t_name == table_name:
-#                if ('keys' in t_definition):
-#                    return t_definition ['keys']
-#
-#    return []
 
     for _, (t_name, t_definition) in enumerate (t_definitions.items()):
         if t_name == table_name:
@@ -368,55 +360,71 @@ def get_table_keys (table_name, t_definitions):
 
 def validate_ingest_maps (ingest_maps, t_names, t_definitions):
     
-    #_maps   = []
     _maps   = {}
     _checks = []
     i_keys  = []
+    _msg    = 'INVALID mapper definition : '
 
     for i, _map in enumerate (ingest_maps):
         for _, (i_name, i_definition) in enumerate (_map.items()):
 
+            _resource = i_definition ['resource-name']
+
+            if ('fpattern' not in i_definition) or (not i_definition ['fpattern']):
+                log.warning('<{}> <{}> : file pattern (fpattern) not defined (DISCARD)'.format(_resource, i_name))
+                #log.warning('<{}> keys not found in table <{}>'.format(_resource, t_name))
+                continue
+
             if ('table' not in i_definition) or (not i_definition ['table']):
-                log.warning('INVALID mapper definition {} : table not specified : DISCARD'.format(i_name))
+                log.warning('<{}> : '.format(i_name) + _msg + '"table" not defined (DISCARD)')
                 continue
             else:
                 t_name = i_definition ['table']
 
             if t_name not in t_names:
-                log.warning('INVALID mapper definition {} : table not found in datasource SCHEMA : DISCARD'.format(i_name))
+                #log.warning('<{}> : '.format(i_name)  + _msg + 'table <{}> not found in SCHEMA (DISCARD)'.format(t_name))
+                log.warning('<{}> table <{}> not found in SCHEMA (DISCARD)'.format(_resource, t_name))
                 continue
             else:
                 table_keys = get_table_keys (t_name, t_definitions) 
 
-            if ('fpattern' not in i_definition) or (not i_definition ['fpattern']):
-                log.warning('INVALID mapper definition {} : file pattern (fpattern) not specified : DISCARD'.format(i_name))
-                continue
-
             if ('global-keys' not in i_definition):
-                log.warning('INVALID mapper definition {} : global-keys not specified : DISCARD'.format(i_name))
+                log.warning('<{}> <{}> : global-keys not defined (DISCARD)'.format(_resource, i_name))
                 continue
             else:
                 i_keys += i_definition ['global-keys']
 
             if ('local-keys' not in i_definition):
-                log.warning('INVALID mapper definition {} : local-keys not specified : DISCARD'.format(i_name))
+                log.warning('<{}> <{}> : local-keys not specified (DISCARD)'.format(_resource, i_name))
                 continue
             else:
                 i_keys += i_definition ['local-keys']
 
-            print('mapper keys : {}'.format(i_keys))
-            print('table keys : {}'.format(table_keys))
+            i_keys = set(i_keys)
+            '''
+            log.debug('mapper keys : {}'.format(i_keys))
+            log.debug('table keys : {}'.format(table_keys))
+            '''
+            key_err = False
+            for _, t_key in enumerate (table_keys):
+                if not (t_key in i_keys):
+                    ### check if key has default
+                    if t_key in i_definition and i_definition [t_key]:
+                        log.debug('<{}> : default value <{}> founded for key <{}>'.format(i_name, i_definition[t_key], t_key))
+                    else:
+                        log.warning('<{}> <{}> : mandatory key <{}> NOT defined (DISCARD)'.format(_resource, i_name, t_key))
+                        key_err = True
+                        break
+            else:
+                log.debug('<{}> : keys validation OK'.format(i_name))
 
-            '''
-            segue controllo delle keys (k not in mapper keys come da diagramma validate_mappers_ActivityDiagram)
-            '''
+            if key_err: break
 
             _id = str(i_definition ['fpattern']) + str(i_definition ['table'])
             if _id not in _checks:
-
                 _checks.append(_id)
-                #_maps.append(_map)
                 _maps [ i_name ] = i_definition
+                log.info('<{}> define a valid ingest mapper <{}>'.format(_resource, i_name))
             else:
                 log.error('DUPLICATE ingest mapper definition : "{}" found on {} - pls resolve this problem, ABORT'.format(_id, i_name))
                 sys.exit(1)
@@ -473,13 +481,11 @@ def _ingest (ds_name, _files):
     for i, (k, v) in enumerate(self.schema.items()):
         print("index: {}, key: {}, value: {}".format(i, k, v))
     '''
-    #if check_schema_integrity (ds_name, key=_V_ [ _K_._DATASOURCE_ROOT_], schema=_schema): 
     if check_schema_integrity (ds_name): 
     
-        #_schema_root = _schema [ _V_ [ _K_._DATASOURCE_ROOT_ ] ]
-        #_maps        = _schema_root [ _K_._MAPS_ ]  
+        '''_schema_root = _schema [ _V_ [ _K_._DATASOURCE_ROOT_ ] ]'''
         _maps        = _schema [ _K_._MAPS_ ]  
-        #log.debug('_maps ------> {}'.format(_maps))
+        '''log.debug('_maps ------> {}'.format(_maps))'''
 
         _prepending_path_rex = '.+/' # necessaria poichè _files[x] = path/nome_file mentre la regex è relativa solo a nome_file
 
@@ -491,22 +497,14 @@ def _ingest (ds_name, _files):
         _parent         = '_PARENT_'
         _value          = '_VAL_'
 
-        _num_maps       = 0
+        _tot_maps       = 0
 
-        #for _map in _maps:
         for _, (_ingest_map_name, _map_definition) in enumerate (_maps.items()):
 
-            #print('_map type/_map : {}/{}'.format(str(type(_map)), _map))
-            #_ingest_map_name = list(_map.keys()).pop()
-            #_ingest_map_name = _map
-            print ('_ingest_map_name : ' +_ingest_map_name)
+            '''print ('_ingest_map_name : ' +_ingest_map_name)'''
 
-            #_regex      = _map [ _ingest_map_name ] [ _K_._FPATTERN_ ] # new
             _regex      = _map_definition [ _K_._FPATTERN_ ] # new
-            #_regex      = _map [ _K_._INGEST_ ] [ _K_._FPATTERN_ ] # new
             _rec        = re.compile (_prepending_path_rex + _regex)
-            #keys        = _map [ _K_._INGEST_ ] [ _K_._KEYMATCH_ ]  ### keys associate al nomefile definite nel mapper file
-            #keys        = _map [ _ingest_map_name ] [ _K_._KEYMATCH_ ]  ### keys associate al nomefile definite nel mapper file
             keys        = _map_definition [ _K_._KEYMATCH_ ]  ### keys associate al nomefile definite nel mapper file
 
             keys_attr   = {}
@@ -624,11 +622,7 @@ def _ingest (ds_name, _files):
                     #log.info('Keys founded in file : market = {}, timestamp = {}'.format(_market, _timestamp))
                     log.debug('we proced to analyze file content...')
 
-                    #fields      = _map [ _K_._INGEST_ ] [ _K_._FFORMAT_ ]
-                    #fields      = _map [ _ingest_map_name ] [ _K_._FFORMAT_ ]
                     fields      = _map_definition [ _K_._FFORMAT_ ]
-                    #separator   = _map [ _K_._INGEST_ ] [ _K_._SEPARATOR_ ]
-                    #separator   = _map [ _ingest_map_name ] [ _K_._SEPARATOR_ ]
                     separator   = _map_definition [ _K_._SEPARATOR_ ]
 
                     with open(fn, 'r') as f:
@@ -669,13 +663,13 @@ def _ingest (ds_name, _files):
                 else:
                     log.warning('<{}> is NOT a VALID ingest file'.format(fn))
 
-            _num_maps += 1
+            _tot_maps += 1
 
         else:
-            if _num_maps:
-                log.info('(found {} mappers)'.format(_num_maps))
+            if _tot_maps:
+                log.info('(found {} mappers)'.format(_tot_maps))
             else:
-                log.warning('No mappers found : skip ingest'.format(_num_maps))
+                log.warning('No mappers found : skip ingest'.format(_tot_maps))
 
     else:
         log.error('check_schema_integrity -> FALSE (bad keys/ not found / internal error or bad configuration')
@@ -712,6 +706,7 @@ def validate_keys(f):
 def iskey (field):
     if field[:1] == '@': return True
     else: return False
+
 
 #https://stackoverflow.com/questions/10399614/accessing-value-inside-nested-dictionaries
 def get_nested(data, *args):

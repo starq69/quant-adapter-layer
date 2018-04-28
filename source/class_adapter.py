@@ -150,7 +150,7 @@ class Connection(object):
                     self.log.warning('NO FILES TO INGEST FOUND')
                     return None
 
-                self.log.debug('_files to ingest : {}'.format(_files))
+                #self.log.debug('_files to ingest : {}'.format(_files))
                 '''
                 for i,/ (k, v) in enumerate(self.schema.items()):
                     print("index: {}, key: {}, value: {}".format(i, k, v))
