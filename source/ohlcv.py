@@ -8,7 +8,7 @@ import os, errno, sys, logging, configparser
 import re, fnmatch
 import json   
 import collections 
-from distutils.util import strtobool ## usare str2bool
+from distutils.util import strtobool ## TBD: usare str2bool
 from functools import lru_cache
 #import conventions ###  TBD from conventions import model_conventions / import model_conventions 
 import model_settings
@@ -27,13 +27,13 @@ def init (ds_run_settings, ds_global_settings): ###TBD: vedi merge_policy ()
 
     this.log = logging.getLogger(__name__)
     func_name = sys._getframe().f_code.co_name
-    log.info('==> Running {}()'.format(func_name))
+    log.info('>>> Running {}()'.format(func_name))
 
     #for k, v in ds_run_settings.items(): log.debug('[{}] = {}'.format(k, v))
 
     base_dir   = os.path.dirname (os.path.realpath(__file__))
     parent_dir = os.path.split (base_dir)[0]
-    cfg_file   = parent_dir + '/' + 'ohlcv.ini'
+    cfg_file   = parent_dir + '/ohlcv.ini'
 
     if not this.policy:
 
@@ -61,7 +61,7 @@ def init (ds_run_settings, ds_global_settings): ###TBD: vedi merge_policy ()
     else:
         log.info('_open_connection [ {} ] already open!'.format(_V_ [ _K_._DATASOURCE_NAME_ ]))
 
-    log.info('<== leave {}()'.format(func_name))
+    log.info('<<< leave {}()'.format(func_name))
 
     return True
 
@@ -69,7 +69,7 @@ def init (ds_run_settings, ds_global_settings): ###TBD: vedi merge_policy ()
 def registerConnection (ds): ###TBD: proposed new name : activate/load_datasource(ds)
 
     func_name = sys._getframe().f_code.co_name
-    log.info('==> Running {}(name={})'.format(func_name, ds))
+    log.info('>>> Running {}(name={})'.format(func_name, ds))
 
     if ds in _open_connections:
         #log.info ('connection <{}> already open!'.format(name))
@@ -80,7 +80,7 @@ def registerConnection (ds): ###TBD: proposed new name : activate/load_datasourc
         _open_connections [ name ] = ds.configuration ... merge_policy....
     '''
 
-    log.info('<== leave {}'.format(func_name))
+    log.info('<<< leave {}'.format(func_name))
 
 
 def load_index(tbd):
@@ -120,7 +120,7 @@ def load_resource_mappers_ex (mappers, path=None):
         path    : path 
     '''
     func_name = sys._getframe().f_code.co_name
-    log.info('==> Running {}()'.format(func_name))
+    log.info('>>> Running {}()'.format(func_name))
 
     _list_dict_mappers = []
     try:
@@ -134,6 +134,9 @@ def load_resource_mappers_ex (mappers, path=None):
                     # aggiunge il nome file (dict_mapper ha sempre una sola key che corrisponde al nome 'logico' della risorsa)
                     dict_mapper [ list (dict_mapper) [0]] ['full-resource-name']    = str(f)
                     dict_mapper [ list (dict_mapper) [0]] ['resource-name']         = str(os.path.basename(f))
+#                    dict_mapper ['__internals__'] = {}
+#                    dict_mapper ['__internals__']['full-resource-name']    = str(f)
+#                    dict_mapper ['__internals__']['resource-name']         = str(os.path.basename(f))
                     _list_dict_mappers.append (dict_mapper)
 
                 except json.JSONDecodeError as e:
@@ -145,7 +148,7 @@ def load_resource_mappers_ex (mappers, path=None):
     except Exception as e:
         log.exception('{} Unmanaged Exception : {}'.format(func_name, e))
 
-    log.info('<== leave {}'.format(func_name))
+    log.info('<<< leave {}'.format(func_name))
     return _list_dict_mappers
 
 
@@ -204,7 +207,7 @@ def get_file_items (path, pattern=None, sort=True, fullnames=True):
 def load_schema (ds_name): 
 
     func_name = sys._getframe().f_code.co_name                                                            
-    log.info('==> Running {}({})'.format(func_name, ds_name))                
+    log.info('>>> Running {}({})'.format(func_name, ds_name))                
                                                                                                           
     _K_                 = _open_connections[ ds_name ] ['_KEYS_']                                                         
     _V_                 = _open_connections[ ds_name ] ['_SETTINGS_']                                                     
@@ -275,7 +278,7 @@ def load_schema (ds_name):
                 log.info('->tot table definitions : {}'.format(str(len(t_definitions)))) 
                 _tree [_K_._TABLES_] += t_definitions
             '''
-        log.info('<== leave {}()'.format(func_name))                                                          
+        log.info('<<< leave {}()'.format(func_name))                                                          
 
         return _tree
 
@@ -287,6 +290,7 @@ def load_schema (ds_name):
                 ###TBD :raise 
                 sys.exit(0) ### 
 
+            log.debug('segue _load_schema () ....')
             _schema = _load_schema (data_source_root, _V_[_K_._SCHEMA_SCAN_OPTION_]) 
 
         else:
@@ -307,7 +311,7 @@ def load_schema (ds_name):
     _open_connections[ ds_name ] ['_SCHEMA_'] = _schema
 
     #log.debug('ds_schema = {}'.format(_schema)) 
-    log.info('<== leave {}()'.format(func_name))                                                          
+    log.info('<<< leave {}()'.format(func_name))                                                          
 
 
 def validate_tables (resource_mappers):
@@ -329,6 +333,7 @@ def validate_tables (resource_mappers):
         for _, (t_name, t_definition) in enumerate (table.items()):
 
             _resource = t_definition ['resource-name']
+            #_resource = t_definition ['__internals__']['resource-name']
 
             if ('keys' not in t_definition) or (not t_definition ['keys']):
                 log.warning('<{}> keys not found in table <{}> (DISCARD)'.format(_resource, t_name))
@@ -369,6 +374,7 @@ def validate_ingest_maps (ingest_maps, t_names, t_definitions):
         for _, (i_name, i_definition) in enumerate (_map.items()):
 
             _resource = i_definition ['resource-name']
+            #_resource = i_definition ['__internals__']['resource-name']
 
             if ('fpattern' not in i_definition) or (not i_definition ['fpattern']):
                 log.warning('<{}> <{}> : file pattern (fpattern) not defined (DISCARD)'.format(_resource, i_name))
@@ -382,7 +388,6 @@ def validate_ingest_maps (ingest_maps, t_names, t_definitions):
                 t_name = i_definition ['table']
 
             if t_name not in t_names:
-                #log.warning('<{}> : '.format(i_name)  + _msg + 'table <{}> not found in SCHEMA (DISCARD)'.format(t_name))
                 log.warning('<{}> table <{}> not found in SCHEMA (DISCARD)'.format(_resource, t_name))
                 continue
             else:
@@ -436,7 +441,7 @@ def validate_ingest_maps (ingest_maps, t_names, t_definitions):
 def check_schema_integrity (ds_name, key=None, schema=None, **other):   ### +par : soft=True (soft/hard check - invalidate cache?)
 
     func_name = sys._getframe().f_code.co_name
-    log.info('==> Running {}()'.format(func_name))
+    log.info('>>> Running {}()'.format(func_name))
 
     _K_     = _open_connections[ ds_name ] ['_KEYS_']  
     _V_     = _open_connections[ ds_name ] ['_SETTINGS_'] 
@@ -463,7 +468,7 @@ def check_schema_integrity (ds_name, key=None, schema=None, **other):   ### +par
      POLICY FLAG 2...
     '''
     log.info('...No more policy to check schema integrity')
-    log.info('<== leave {}()'.format(func_name))
+    log.info('<<< leave {}()'.format(func_name))
 
     return True
 
@@ -472,7 +477,7 @@ def check_schema_integrity (ds_name, key=None, schema=None, **other):   ### +par
 def _ingest (ds_name, _files):
 
     func_name = sys._getframe().f_code.co_name
-    log.info('==> Running {}(ds_name={})'.format(func_name, ds_name))
+    log.info('>>> Running {}(ds_name={})'.format(func_name, ds_name))
 
     _K_     = _open_connections[ ds_name ] ['_KEYS_']  
     _V_     = _open_connections[ ds_name ] ['_SETTINGS_'] 
@@ -533,7 +538,7 @@ def _ingest (ds_name, _files):
                 if _match is not None:
                     ''' VALID INGEST FILE/RESOURCE'''
 
-                    log.debug('<{}> is a VALID ingest file'.format(fn))
+                    log.info('<{}> is a VALID ingest file'.format(fn))
                     _market = _symbol = _timeframe = _timestamp = None      ### KEYS
 
                     '''
@@ -620,7 +625,7 @@ def _ingest (ds_name, _files):
                         # OLD END #
 
                     #log.info('Keys founded in file : market = {}, timestamp = {}'.format(_market, _timestamp))
-                    log.debug('we proced to analyze file content...')
+                    log.info('we proced to analyze file content...')
 
                     fields      = _map_definition [ _K_._FFORMAT_ ]
                     separator   = _map_definition [ _K_._SEPARATOR_ ]
@@ -646,7 +651,7 @@ def _ingest (ds_name, _files):
                                         _mkt_dict [ field ] = data
                                     #log.debug('key {} found : {}'.format(fields[i], field))
 
-                        log.debug('tot data rows = {}'.format(len(rows)))
+                        log.info('tot data rows = {}'.format(len(rows)))
 
                     '''TBD
                     manage policy to implement one-pass ingest file elaboration or not
@@ -675,7 +680,7 @@ def _ingest (ds_name, _files):
         log.error('check_schema_integrity -> FALSE (bad keys/ not found / internal error or bad configuration')
         ###raise
 
-    log.info('<== leave {}()'.format(func_name))
+    log.info('<<< leave {}()'.format(func_name))
 
 
 def _ingest_data():
