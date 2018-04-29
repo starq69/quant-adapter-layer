@@ -131,12 +131,12 @@ def load_resource_mappers_ex (mappers, path=None):
             with open(fn) as json_mapper:
                 try:
                     dict_mapper = json.load (json_mapper)
-                    # aggiunge il nome file (dict_mapper ha sempre una sola key che corrisponde al nome 'logico' della risorsa)
-                    dict_mapper [ list (dict_mapper) [0]] ['full-resource-name']    = str(f)
-                    dict_mapper [ list (dict_mapper) [0]] ['resource-name']         = str(os.path.basename(f))
-#                    dict_mapper ['__internals__'] = {}
-#                    dict_mapper ['__internals__']['full-resource-name']    = str(f)
-#                    dict_mapper ['__internals__']['resource-name']         = str(os.path.basename(f))
+                    # aggiunge gli '__internals__' resource-name + full-resource-name sul dict mapper
+#                    dict_mapper [ list (dict_mapper) [0]] ['full-resource-name']    = str(f)
+#                    dict_mapper [ list (dict_mapper) [0]] ['resource-name']         = str(os.path.basename(f))
+                    dict_mapper ['__internals__'] = {}
+                    dict_mapper ['__internals__']['full-resource-name']    = str(f)
+                    dict_mapper ['__internals__']['resource-name']         = str(os.path.basename(f))
                     _list_dict_mappers.append (dict_mapper)
 
                 except json.JSONDecodeError as e:
@@ -237,10 +237,10 @@ def load_schema (ds_name):
             if not t_definitions:
                 log.error('NO TABLE DEFINITIONS FOUND! Pls check datasource configuration. ABORT')
                 sys.exit(1)
-            log.info('->valid datasource tables = {}'.format(t_names)) 
 
+            log.info('->valid datasource tables = {}'.format(t_names)) ### attenzione : t_definitions contiene anche __internals__ (t_names no)
             _tree [_K_._TABLES_] = t_definitions
-            #log.info('->tables : {}'.format(_tree[_K_._TABLES_])) 
+            log.debug('->tables : {}'.format(_tree[_K_._TABLES_])) 
 
             # issue#2 : ex _MAPPERS_PATTERN_STYLE_ 
             ingest_maps = validate_ingest_maps ( load_resource_mappers_ex ( get_file_items ( path, _V_[_K_._INGEST_MAP_FILES_])), t_names, t_definitions)
@@ -248,8 +248,8 @@ def load_schema (ds_name):
                 log.error('NO VALID INGEST MAPPERS FOUND! (ingestion is disabled for this session) Pls check ingest mappers definition files and try again.') #. ABORT')
                 #sys.exit(1)
             else:
+                log.info('->tot ingest mappers found : {}'.format(len(ingest_maps))) ### attenzione : len(ingest_maps) considera anche __internals__
                 _tree[_K_._MAPS_] = ingest_maps
-                log.info('->tot ingest mappers found : {}'.format(len(ingest_maps))) 
                 log.debug('->ingest mappers : {}'.format(_tree[_K_._MAPS_])) 
 
         elif scan_policy == _V_ [ _K_.SCHEMA_ALL_SUBFOLDERS_]:
@@ -330,25 +330,31 @@ def validate_tables (resource_mappers):
     #_msg    = 'INVALID table definition : '  
 
     for i, table in enumerate (resource_mappers):
+
+        _resource = table ['__internals__'] ['resource-name']
+
         for _, (t_name, t_definition) in enumerate (table.items()):
 
-            _resource = t_definition ['resource-name']
-            #_resource = t_definition ['__internals__']['resource-name']
+            if t_name != '__internals__':
 
-            if ('keys' not in t_definition) or (not t_definition ['keys']):
-                log.warning('<{}> keys not found in table <{}> (DISCARD)'.format(_resource, t_name))
-                continue
-            elif ('fields' not in t_definition) or (not t_definition ['fields']):
-                log.warning('<{}> fields not found in table <{}> (DISCARD)'.format(_resource, t_name))
-                continue
+                if ('keys' not in t_definition) or (not t_definition ['keys']):
+                    log.warning('<{}> keys not found in table <{}> (DISCARD)'.format(_resource, t_name))
+                    continue
+                elif ('fields' not in t_definition) or (not t_definition ['fields']):
+                    log.warning('<{}> fields not found in table <{}> (DISCARD)'.format(_resource, t_name))
+                    continue
 
-            if t_name not in _names:
-                _names.append(t_name)
-                log.info('<{}> define a valid table <{}>'.format(_resource, t_name))
-                _tables [ t_name ] = t_definition
+                if t_name not in _names:
+                    _names.append(t_name)
+                    log.info('<{}> define a valid table <{}>'.format(_resource, t_name))
+                    _tables [ t_name ] = t_definition
+                else:
+                    log.error('DUPLICATE table definition : {} - pls resolve this problem (ABORT)'.format(t_name))
+                    sys.exit(1)
+
+            # propagate __internals__
             else:
-                log.error('DUPLICATE table definition : {} - pls resolve this problem (ABORT)'.format(t_name))
-                sys.exit(1)
+                _tables [ t_name ] = t_definition
 
     return _tables, _names
 
@@ -371,68 +377,74 @@ def validate_ingest_maps (ingest_maps, t_names, t_definitions):
     _msg    = 'INVALID mapper definition : '
 
     for i, _map in enumerate (ingest_maps):
+        
+        _resource = _map ['__internals__'] ['resource-name']
+
         for _, (i_name, i_definition) in enumerate (_map.items()):
 
-            _resource = i_definition ['resource-name']
-            #_resource = i_definition ['__internals__']['resource-name']
+            if i_name != '__internals__':
 
-            if ('fpattern' not in i_definition) or (not i_definition ['fpattern']):
-                log.warning('<{}> <{}> : file pattern (fpattern) not defined (DISCARD)'.format(_resource, i_name))
-                #log.warning('<{}> keys not found in table <{}>'.format(_resource, t_name))
-                continue
+                if ('fpattern' not in i_definition) or (not i_definition ['fpattern']):
+                    log.warning('<{}> <{}> : file pattern (fpattern) not defined (DISCARD)'.format(_resource, i_name))
+                    #log.warning('<{}> keys not found in table <{}>'.format(_resource, t_name))
+                    continue
 
-            if ('table' not in i_definition) or (not i_definition ['table']):
-                log.warning('<{}> : '.format(i_name) + _msg + '"table" not defined (DISCARD)')
-                continue
+                if ('table' not in i_definition) or (not i_definition ['table']):
+                    log.warning('<{}> : '.format(i_name) + _msg + '"table" not defined (DISCARD)')
+                    continue
+                else:
+                    t_name = i_definition ['table']
+
+                if t_name not in t_names:
+                    log.warning('<{}> table <{}> not found in SCHEMA (DISCARD)'.format(_resource, t_name))
+                    continue
+                else:
+                    table_keys = get_table_keys (t_name, t_definitions) 
+
+                if ('global-keys' not in i_definition):
+                    log.warning('<{}> <{}> : global-keys not defined (DISCARD)'.format(_resource, i_name))
+                    continue
+                else:
+                    i_keys += i_definition ['global-keys']
+
+                if ('local-keys' not in i_definition):
+                    log.warning('<{}> <{}> : local-keys not specified (DISCARD)'.format(_resource, i_name))
+                    continue
+                else:
+                    i_keys += i_definition ['local-keys']
+
+                i_keys = set(i_keys)
+                '''
+                log.debug('mapper keys : {}'.format(i_keys))
+                log.debug('table keys : {}'.format(table_keys))
+                '''
+                key_err = False
+                for _, t_key in enumerate (table_keys):
+                    if not (t_key in i_keys):
+                        ### check if key has default
+                        if t_key in i_definition and i_definition [t_key]:
+                            log.debug('<{}> : default value <{}> founded for key <{}>'.format(i_name, i_definition[t_key], t_key))
+                        else:
+                            log.warning('<{}> <{}> : mandatory key <{}> NOT defined (DISCARD)'.format(_resource, i_name, t_key))
+                            key_err = True
+                            break
+                else:
+                    log.debug('<{}> : keys validation OK'.format(i_name))
+
+                if key_err: break
+
+                _id = str(i_definition ['fpattern']) + str(i_definition ['table'])
+                if _id not in _checks:
+                    _checks.append(_id)
+                    _maps [ i_name ] = i_definition
+                    log.info('<{}> define a valid ingest mapper <{}>'.format(_resource, i_name))
+                else:
+                    log.error('DUPLICATE ingest mapper definition : "{}" found on {} - pls resolve this problem, ABORT'.format(_id, i_name))
+                    sys.exit(1)
+
             else:
-                t_name = i_definition ['table']
-
-            if t_name not in t_names:
-                log.warning('<{}> table <{}> not found in SCHEMA (DISCARD)'.format(_resource, t_name))
-                continue
-            else:
-                table_keys = get_table_keys (t_name, t_definitions) 
-
-            if ('global-keys' not in i_definition):
-                log.warning('<{}> <{}> : global-keys not defined (DISCARD)'.format(_resource, i_name))
-                continue
-            else:
-                i_keys += i_definition ['global-keys']
-
-            if ('local-keys' not in i_definition):
-                log.warning('<{}> <{}> : local-keys not specified (DISCARD)'.format(_resource, i_name))
-                continue
-            else:
-                i_keys += i_definition ['local-keys']
-
-            i_keys = set(i_keys)
-            '''
-            log.debug('mapper keys : {}'.format(i_keys))
-            log.debug('table keys : {}'.format(table_keys))
-            '''
-            key_err = False
-            for _, t_key in enumerate (table_keys):
-                if not (t_key in i_keys):
-                    ### check if key has default
-                    if t_key in i_definition and i_definition [t_key]:
-                        log.debug('<{}> : default value <{}> founded for key <{}>'.format(i_name, i_definition[t_key], t_key))
-                    else:
-                        log.warning('<{}> <{}> : mandatory key <{}> NOT defined (DISCARD)'.format(_resource, i_name, t_key))
-                        key_err = True
-                        break
-            else:
-                log.debug('<{}> : keys validation OK'.format(i_name))
-
-            if key_err: break
-
-            _id = str(i_definition ['fpattern']) + str(i_definition ['table'])
-            if _id not in _checks:
-                _checks.append(_id)
+                # propagate __internals__
                 _maps [ i_name ] = i_definition
-                log.info('<{}> define a valid ingest mapper <{}>'.format(_resource, i_name))
-            else:
-                log.error('DUPLICATE ingest mapper definition : "{}" found on {} - pls resolve this problem, ABORT'.format(_id, i_name))
-                sys.exit(1)
 
     return _maps
 
@@ -507,168 +519,171 @@ def _ingest (ds_name, _files):
         for _, (_ingest_map_name, _map_definition) in enumerate (_maps.items()):
 
             '''print ('_ingest_map_name : ' +_ingest_map_name)'''
+            ### TBD aggiungere test _ingest_map_name != '__internals__'
 
-            _regex      = _map_definition [ _K_._FPATTERN_ ] # new
-            _rec        = re.compile (_prepending_path_rex + _regex)
-            keys        = _map_definition [ _K_._KEYMATCH_ ]  ### keys associate al nomefile definite nel mapper file
+            if not _ingest_map_name.startswith('__'):
 
-            keys_attr   = {}
-            for _, key in enumerate (keys): keys_attr [ key ] = _V_ [ key + str(_attr) ] ## ver. compatta senza log e indice
-#            try:
-#                for j, key in enumerate (keys):
-#                    log.debug('enumerate keys : {}, {}'.format(j, key))
-#                    keys_attr [ key ]   = _V_ [ key + str(_attr) ]
-#                    log.debug('keys_attr [ {} ] = <{}>'.format(key, keys_attr [ key]))
-#            except KeyError as e:
-#                log.warning('WARNING : {}'.format(e))
+                _regex      = _map_definition [ _K_._FPATTERN_ ] # new
+                _rec        = re.compile (_prepending_path_rex + _regex)
+                keys        = _map_definition [ _K_._KEYMATCH_ ]  ### keys associate al nomefile definite nel mapper file
 
-            _data_mapper    = {}
+                keys_attr   = {}
+                for _, key in enumerate (keys): keys_attr [ key ] = _V_ [ key + str(_attr) ] ## ver. compatta senza log e indice
+    #            try:
+    #                for j, key in enumerate (keys):
+    #                    log.debug('enumerate keys : {}, {}'.format(j, key))
+    #                    keys_attr [ key ]   = _V_ [ key + str(_attr) ]
+    #                    log.debug('keys_attr [ {} ] = <{}>'.format(key, keys_attr [ key]))
+    #            except KeyError as e:
+    #                log.warning('WARNING : {}'.format(e))
 
-#           try:
-#               while validate_keys(_files.pop()):  ### raise NoFile
-#                   _ingest_data()
-#               else:
-#                   log.warning('invalid keys definition for file')
-#           except NoFile :
-#               total time to process nnn _files is xxxx
+                _data_mapper    = {}
 
-            for k, fn in enumerate (_files):
+    #           try:
+    #               while validate_keys(_files.pop()):  ### raise NoFile
+    #                   _ingest_data()
+    #               else:
+    #                   log.warning('invalid keys definition for file')
+    #           except NoFile :
+    #               total time to process nnn _files is xxxx
 
-                _match = _rec.match (fn)
-                if _match is not None:
-                    ''' VALID INGEST FILE/RESOURCE'''
+                for k, fn in enumerate (_files):
 
-                    log.info('<{}> is a VALID ingest file'.format(fn))
-                    _market = _symbol = _timeframe = _timestamp = None      ### KEYS
+                    _match = _rec.match (fn)
+                    if _match is not None:
+                        ''' VALID INGEST FILE/RESOURCE'''
 
-                    '''
-                    LETTURA KEY-VALUE DAL NOMEFILE
-                    '''
-                    for j, key in enumerate (keys):
+                        log.info('<{}> is a VALID ingest file'.format(fn))
+                        _market = _symbol = _timeframe = _timestamp = None      ### KEYS
 
-                        _maybe  = ()
-                        _val    = _match.group(j+1)        # valore
+                        '''
+                        LETTURA KEY-VALUE DAL NOMEFILE
+                        '''
+                        for j, key in enumerate (keys):
 
-                        #log.debug ('BUG HERE! --> keys_attr [key] = {}'.format(keys_attr[key]))
-                        #for i, v in enumerate(keys_attr):
-                        #    log.debug('--> {} : {}'.format(i, v))
+                            _maybe  = ()
+                            _val    = _match.group(j+1)        # valore
 
-                        if _K_._IS_NODE_ in keys_attr [ key ]:
-                            '''
-                            NB. in questa fase - retrieve dei valori delle keys presenti nel nome file - le keys con attributo _IS_NODE_
-                            vengono allocate regolarmente nella struttura di data_mapping (ad es. MKT o SYM)
-                            '''
-                            log.debug('{} key is a node key!'.format(key))
+                            #log.debug ('BUG HERE! --> keys_attr [key] = {}'.format(keys_attr[key]))
+                            #for i, v in enumerate(keys_attr):
+                            #    log.debug('--> {} : {}'.format(i, v))
 
-                            _data_mapper [ key ] = []  
-                            _data_mapper [ key ].append({'_PARENT_KEY_':None, '_VALUE_':_val})
+                            if _K_._IS_NODE_ in keys_attr [ key ]:
+                                '''
+                                NB. in questa fase - retrieve dei valori delle keys presenti nel nome file - le keys con attributo _IS_NODE_
+                                vengono allocate regolarmente nella struttura di data_mapping (ad es. MKT o SYM)
+                                '''
+                                log.debug('{} key is a node key!'.format(key))
 
-                        else:
-                            _maybe = key, {'_PARENT_KEY_':None, '_VALUE_':_val}
-
-                            log.debug('maybe : <{}> <{}>'.format(key, _maybe[-1]))
-
-
-                        if _K_._HAS_PARENT_ in keys_attr [ key ]:
-                            '''
-                            NB. in questa fase - retreive dei valori delle keys presenti nel nome file - non è necessario
-                            verificare la presenza dell'elemento parent key (ad es. SYM x la key timestamp), ciò significa che 
-                            tale key (ad es. timestamp) potrà essere anche associata successivamente ai data point (in quanto viene 
-                            comunque salvato nella sessione di data_mapping relativa al file) più verosimilmente cmq troveremo
-                            di nuovo la stessa key nei data point stessi e pertanto verranno utilizzati i relativi valori presi
-                            dal datapoint
-                            '''
-                            parent_key = _V_ [ key + str(_parent) ] 
-
-                            log.debug('<{}> key has parent key <{}>'.format(key, parent_key))
-
-                            if parent_key in _data_mapper:
-                                if _maybe:
-                                    #_maybe[-1][_value] = _data_mapper [ parent_key ]
-                                    _maybe[-1]['_PARENT_KEY_'] = _data_mapper [ parent_key ]
-                                else:
-                                    _data_mapper [ key ]['_PARENT_KEY_'] = _data_mapper [ parent_key ]
-
-                                log.debug('_HAS_PARENT_ attr set for key <{}> & PARENT KEY available during file name analisys!'.format(key))
-                                log.debug('_data_mapper = {}'.format(_data_mapper))
-                                log.debug('_maybe = {}'.format(_maybe))
+                                _data_mapper [ key ] = []  
+                                _data_mapper [ key ].append({'_PARENT_KEY_':None, '_VALUE_':_val})
 
                             else:
-                                log.debug('_HAS_PARENT_ attr set for key <{}> & NO PARENT KEY found during file name analisys!'.format(key))
+                                _maybe = key, {'_PARENT_KEY_':None, '_VALUE_':_val}
 
-                        log.debug ('_data_mapper = {}'.format(_data_mapper))
+                                log.debug('maybe : <{}> <{}>'.format(key, _maybe[-1]))
 
-                        # update data mapper
-                        #
-                        #_data_mapper [ key ] = []       ### key can be: @MKT, @SYM, @timeframe, @timestamp
-                        #_data_mapper [ key ].append(_val)
 
-                        log.debug('KEY/val/attr : {}/{}/{}'.format(key, _val, keys_attr[key]))
+                            if _K_._HAS_PARENT_ in keys_attr [ key ]:
+                                '''
+                                NB. in questa fase - retreive dei valori delle keys presenti nel nome file - non è necessario
+                                verificare la presenza dell'elemento parent key (ad es. SYM x la key timestamp), ciò significa che 
+                                tale key (ad es. timestamp) potrà essere anche associata successivamente ai data point (in quanto viene 
+                                comunque salvato nella sessione di data_mapping relativa al file) più verosimilmente cmq troveremo
+                                di nuovo la stessa key nei data point stessi e pertanto verranno utilizzati i relativi valori presi
+                                dal datapoint
+                                '''
+                                parent_key = _V_ [ key + str(_parent) ] 
 
-                        # OLD #
-#                        if key == '@MKT':
-#
-#                            _market = _match.group(j+1) # valore
-#                            if _market not in _idx:
-#
-#                                _mkt_dict = _idx[_market]   = {}
-#                                #_mkt_dict       = _idx[_market]
-#
-#                        elif key == '@SYM':
-#                            pass
-#
-#                        elif key == '@timeframe':
-#                            pass
-#
-#                        elif key == '@timestamp':
-#                            _timestamp = _match.group(j+1) # valore
-                        # OLD END #
+                                log.debug('<{}> key has parent key <{}>'.format(key, parent_key))
 
-                    #log.info('Keys founded in file : market = {}, timestamp = {}'.format(_market, _timestamp))
-                    log.info('we proced to analyze file content...')
+                                if parent_key in _data_mapper:
+                                    if _maybe:
+                                        #_maybe[-1][_value] = _data_mapper [ parent_key ]
+                                        _maybe[-1]['_PARENT_KEY_'] = _data_mapper [ parent_key ]
+                                    else:
+                                        _data_mapper [ key ]['_PARENT_KEY_'] = _data_mapper [ parent_key ]
 
-                    fields      = _map_definition [ _K_._FFORMAT_ ]
-                    separator   = _map_definition [ _K_._SEPARATOR_ ]
+                                    log.debug('_HAS_PARENT_ attr set for key <{}> & PARENT KEY available during file name analisys!'.format(key))
+                                    log.debug('_data_mapper = {}'.format(_data_mapper))
+                                    log.debug('_maybe = {}'.format(_maybe))
 
-                    with open(fn, 'r') as f:
-                        #rows    = f.read().splitlines()
-                        #header  = rows.pop(0)
+                                else:
+                                    log.debug('_HAS_PARENT_ attr set for key <{}> & NO PARENT KEY found during file name analisys!'.format(key))
 
-                        header = f.readline().rstrip()
-                        # TEST header for keys....:ok
-                        rows = f.read().splitlines()
-                        # ko : warning + continue   ###
+                            log.debug ('_data_mapper = {}'.format(_data_mapper))
+
+                            # update data mapper
+                            #
+                            #_data_mapper [ key ] = []       ### key can be: @MKT, @SYM, @timeframe, @timestamp
+                            #_data_mapper [ key ].append(_val)
+
+                            log.debug('KEY/val/attr : {}/{}/{}'.format(key, _val, keys_attr[key]))
+
+                            # OLD #
+    #                        if key == '@MKT':
+    #
+    #                            _market = _match.group(j+1) # valore
+    #                            if _market not in _idx:
+    #
+    #                                _mkt_dict = _idx[_market]   = {}
+    #                                #_mkt_dict       = _idx[_market]
+    #
+    #                        elif key == '@SYM':
+    #                            pass
+    #
+    #                        elif key == '@timeframe':
+    #                            pass
+    #
+    #                        elif key == '@timestamp':
+    #                            _timestamp = _match.group(j+1) # valore
+                            # OLD END #
+
+                        #log.info('Keys founded in file : market = {}, timestamp = {}'.format(_market, _timestamp))
+                        log.info('we proced to analyze file content...')
+
+                        fields      = _map_definition [ _K_._FFORMAT_ ]
+                        separator   = _map_definition [ _K_._SEPARATOR_ ]
+
+                        with open(fn, 'r') as f:
+                            #rows    = f.read().splitlines()
+                            #header  = rows.pop(0)
+
+                            header = f.readline().rstrip()
+                            # TEST header for keys....:ok
+                            rows = f.read().splitlines()
+                            # ko : warning + continue   ###
+                            
+                            log.debug('HEADER : {}'.format(header))
+                            for row in rows:
+                                data = row.split( separator )
+
+                                for i, field in enumerate(data):
+                                    if fields[i][:1] == '@': ### iskey()
+                                        if not field in _mkt_dict:
+                                            ###TBD:
+                                            # debbo rimuovere field da data...
+                                            _mkt_dict [ field ] = data
+                                        #log.debug('key {} found : {}'.format(fields[i], field))
+
+                            log.info('tot data rows = {}'.format(len(rows)))
+
+                        '''TBD
+                        manage policy to implement one-pass ingest file elaboration or not
+                        in pratica il policy flag definisce se si debba impedire o meno che i files di dati una volta elaborati possano essere rielaborati con il successivo mappers
+                        if ONE_PASS:
+                            ...
+                        '''
                         
-                        log.debug('HEADER : {}'.format(header))
-                        for row in rows:
-                            data = row.split( separator )
-
-                            for i, field in enumerate(data):
-                                if fields[i][:1] == '@': ### iskey()
-                                    if not field in _mkt_dict:
-                                        ###TBD:
-                                        # debbo rimuovere field da data...
-                                        _mkt_dict [ field ] = data
-                                    #log.debug('key {} found : {}'.format(fields[i], field))
-
-                        log.info('tot data rows = {}'.format(len(rows)))
-
-                    '''TBD
-                    manage policy to implement one-pass ingest file elaboration or not
-                    in pratica il policy flag definisce se si debba impedire o meno che i files di dati una volta elaborati possano essere rielaborati con il successivo mappers
-                    if ONE_PASS:
-                        ...
-                    '''
-                    
-                    
-#                    for k, _map in sorted(_mkt_dict.items()):
-#                        log.debug ('_mkt_dict : {} -> {}'.format(k, _map))
+                        
+    #                    for k, _map in sorted(_mkt_dict.items()):
+    #                        log.debug ('_mkt_dict : {} -> {}'.format(k, _map))
 
 
-                else:
-                    log.warning('<{}> is NOT a VALID ingest file'.format(fn))
+                    else:
+                        log.warning('<{}> is NOT a VALID ingest file'.format(fn))
 
-            _tot_maps += 1
+                _tot_maps += 1
 
         else:
             if _tot_maps:
