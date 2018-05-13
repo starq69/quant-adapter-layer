@@ -31,7 +31,9 @@ def merge_settings (global_settings, configuration, section=None): ###TBD: inglo
             log.error('Internal error in set_val() with item of type list! :{}'.format(e))
             raise ###
 
-    ### ...
+    ### 
+    #for section in configuration.sections() ...
+
     if not section: section = 'MODEL' 
     else: section=section.strip() 
 

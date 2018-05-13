@@ -44,6 +44,7 @@ def init (ds_run_settings, ds_global_settings): ###TBD: vedi merge_policy ()
                 log.error('missing model configuration file <{}> ... try to load defaults...'.format(cfg_file))
 
             this.policy = merge_settings (model_settings, configured, 'MODEL') 
+            log.debug('policy : <{}>'.format(this.policy))
 
         except configparser.Error as e:
             log.error ('configparser.Error in model.init() : {}'.format (e))

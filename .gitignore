@@ -3,6 +3,9 @@
 # C extensions
 *.so
 
+*.log
+*.gz
+
 # Packages
 *.egg
 *.egg-info

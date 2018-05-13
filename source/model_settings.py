@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-15 -*-
 
-import sys, logging
-#import merge_settings 
 
 '''
 MODEL KEYS SETTINGS
@@ -35,7 +33,7 @@ defaults = {
             _INGEST_    : _INGEST_,
             _REGEX_     : _REGEX_,
             _GMATCH_    : _GMATCH_,
-            _CACHE_SIZE_            : 10000,
+            _CACHE_SIZE_            : '100M',
            }
 '''
 CONFIGURATION SETTINGS

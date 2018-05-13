@@ -32,6 +32,12 @@ def main():
             log.error('missing app configuration file <{}> : ABORT....'.format(cfg_file))
             sys.exit(1)
 
+        else:
+            log.debug('app/session configuration file <{}> loaded'.format(cfg_file))
+            # attualmente cfg_file NoN viene utilizzato, lo riceve il costruttore di Connection
+            # ma non lo usa...
+            pass
+
     except configparser.Error as e:
         print ('STOP : {}'.format (e))
         sys.exit(1)

@@ -23,7 +23,10 @@ class Connection(object):
 
         base_dir        = os.path.dirname (os.path.realpath(__file__))
         parent_dir      = os.path.split (base_dir)[0] ### essendo cfg_file nella parent dir...
-        self.app_config = app_config
+
+        # NON utilizzato...
+        self.app_config = app_config    
+
         self.model      = model.strip()
         self.datasource = datasource.strip()
         self.cfg_file   = parent_dir + '/' + self.datasource + '.ini'
