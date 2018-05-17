@@ -13,43 +13,84 @@ _models = {}
 
 class Connection(object):
 
-    def __init__(self, app_config, model, datasource):
+    def __init__(self, app_config):
 
         self.log        = logging.getLogger(__name__)
         func_name       = sys._getframe().f_code.co_name
         self.log.info('==> Running {}()'.format(func_name))
 
-        self._CONFIG_SECTION_ = 'DATASOURCE' ### nb utilizzato dopo la config.read : può essere un val configurato
+        def load_app_settings (app_config):
+
+            _Keys = ds_global_settings
+
+#            try:
+#                #app_config = dict(app_config.items('GLOBALS'))
+#                for k, v in app_config.items():
+#                    self.log.debug('{} : {}'.format(k,v))
+#            except NoSectionError as e:
+#                self.log.error('No [GLOBAL] section in app configuration file, pls specify one. ABORT')
+#                ### raise 
+#                sys.exit(1)
+
+            #if 'model_name' in app_config:
+            if _Keys._MODEL_NAME_ in app_config:
+                #
+                # override default setting
+                # 
+                ds_global_settings.defaults[_Keys._MODEL_NAME_] = self.model = app_config[_Keys._MODEL_NAME_].strip()
+                self.log.debug('model is <{}>'.format(self.model))
+            else:
+                self.log.error('No \'model_name\' found in [GLOBAL] section of app configuration file, pls specify one. ABORT')
+                ### raise
+                sys.exit(1)
+
+            #if 'datasource_name' in app_config:
+            if _Keys._DATASOURCE_NAME_ in app_config:
+                #
+                # override default setting
+                #
+                ds_global_settings.defaults[_Keys._DATASOURCE_NAME_] = self.datasource = app_config[_Keys._DATASOURCE_NAME_].strip()
+                self.log.debug('datasource is <{}>'.format(self.datasource))
+            else:
+                self.log.error('No \'datasource_name\' found in [GLOBAL] section of app configuration file, pls specify one. ABORT')
+                ### raise
+                sys.exit(1)
+
+            #
+            #   other parameters from app/session configuration file (for future use)
+            #
+
+            return True
+
 
         base_dir        = os.path.dirname (os.path.realpath(__file__))
         parent_dir      = os.path.split (base_dir)[0] ### essendo cfg_file nella parent dir...
 
-        # NON utilizzato...
-        self.app_config = app_config    
+        load_app_settings (app_config)
 
-        self.model      = model.strip()
-        self.datasource = datasource.strip()
-        self.cfg_file   = parent_dir + '/' + self.datasource + '.ini'
-
-        if model not in _models: 
+        if self.model not in _models: 
             try:
-                _models[model] = load_adapter('TBD', model) 
-                self.log.info('==> model <{}> loaded'.format(model))
+                _models[self.model] = load_adapter('_unused_', self.model) 
+                self.log.info('==> model <{}> loaded'.format(self.model))
 
             except Exception as e:
-                self.log.error('fail to load model {} : ABORT'.format(model, e))
+                self.log.error('fail to load model {} : ABORT'.format(self.model, e))
+                ### raise
                 sys.exit(1)
         else:
-                self.log.info('==> model <{}> already loaded'.format(model))
+                self.log.info('==> model <{}> already loaded'.format(self.odel))
 
 
+        self.cfg_file   = parent_dir + '/' + self.datasource + '.ini'
         try:                                                                                              
             configured = configparser.ConfigParser () 
 
             if not configured.read (self.cfg_file):          ### Return list of successfully read files
-                self.log.warning ('missing datasource configuration file <{}> ... try to load defaults...'.format(self.cfg_file))
+                self.log.error('missing datasource configuration file <{}> . pls specify one. ABORT'.format(self.cfg_file))
+                ### raise
+                sys.exit(1)
 
-            self.ds_run_settings = merge_settings (ds_global_settings, configured, self._CONFIG_SECTION_)
+            self.ds_run_settings = merge_settings (ds_global_settings, configured)
 
             self.log.debug('--------self.ds_run_settings.items()-----------------')
             for k, v in self.ds_run_settings.items(): self.log.debug('[{}] = {}'.format(k, v))
@@ -62,7 +103,6 @@ class Connection(object):
         self.log.info('<== leave {}()'.format(func_name))
 
 
-
     def __enter__(self):
 
         func_name = sys._getframe().f_code.co_name
@@ -70,6 +110,8 @@ class Connection(object):
 
         model   = _models[self.model]
         ds      = self.datasource
+
+        print('model/ds = {}/{}'.format(self.model, self.datasource))
 
         model.init (self.ds_run_settings, ds_global_settings) ### qui posso passare anche dei callable che poi verranno associati alle keys nell'implementazione del model
 

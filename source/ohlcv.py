@@ -43,7 +43,7 @@ def init (ds_run_settings, ds_global_settings): ###TBD: vedi merge_policy ()
             if not configured.read (cfg_file):          ### Return list of successfully read files
                 log.error('missing model configuration file <{}> ... try to load defaults...'.format(cfg_file))
 
-            this.policy = merge_settings (model_settings, configured, 'MODEL') 
+            this.policy = merge_settings (model_settings, configured) #, 'MODEL') 
             log.debug('policy : <{}>'.format(this.policy))
 
         except configparser.Error as e:
@@ -51,7 +51,8 @@ def init (ds_run_settings, ds_global_settings): ###TBD: vedi merge_policy ()
             sys.exit(1)
 
 
-    _V_, _K_ = ds_run_settings, ds_global_settings
+    #_V_, _K_ = ds_run_settings, ds_global_settings
+    _K_, _V_ = ds_global_settings, ds_run_settings
 
     if not _V_ [ _K_._DATASOURCE_NAME_ ] in _open_connections:
         _open_connections[ _V_ [ _K_._DATASOURCE_NAME_ ]] = {}
@@ -133,8 +134,6 @@ def load_resource_mappers_ex (mappers, path=None):
                 try:
                     dict_mapper = json.load (json_mapper)
                     # aggiunge gli '__internals__' resource-name + full-resource-name sul dict mapper
-#                    dict_mapper [ list (dict_mapper) [0]] ['full-resource-name']    = str(f)
-#                    dict_mapper [ list (dict_mapper) [0]] ['resource-name']         = str(os.path.basename(f))
                     dict_mapper ['__internals__'] = {}
                     dict_mapper ['__internals__']['full-resource-name']    = str(f)
                     dict_mapper ['__internals__']['resource-name']         = str(os.path.basename(f))

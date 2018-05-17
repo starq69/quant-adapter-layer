@@ -25,21 +25,19 @@ def importModule(uri, absl=False):
             
     if os.path.exists(no_ext + '.pyc'):
         try:
-            log.info('module to be imported: <{} - {}>'.format(no_ext, mname))
+            log.info('module to be imported: <{}>'.format(no_ext + '.pyc'))
             return (imp.load_compiled(mname, no_ext + '.pyc'))
-            log.info('compiled imported')
         except Exception as e:
             log.error('imp error: {}'.format(e))
             raise e
 
     if os.path.exists(no_ext + '.py'):
         try:
-            log.info('module to be imported: <{} - {}>'.format(no_ext, mname))
+            log.info('module to be imported: <{}>'.format(no_ext + '.py'))
             return (imp.load_source(mname, no_ext + '.py'))
-            log.debug('source imported')
         except Exception as e:
             log.error('imp error: {}'.format(e))
             raise e
 
-    #log.error('missing module <{} - {}>'.format(no_ext, mname))
+    log.error('missing module <{} - {}>'.format(no_ext, mname))
     raise ### missing module error

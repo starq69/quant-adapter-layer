@@ -19,6 +19,7 @@ def load_adapter(conf, module_name):
     log = logging.getLogger(__name__)
 
     module = module_name.strip()
+    log.debug('try to import module <{}>'.format(module))
 
     if module not in _adapters:
         try:
