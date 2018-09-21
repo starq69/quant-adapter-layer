@@ -70,7 +70,7 @@ class Connection(object):
 
         if self.model not in _models: 
             try:
-                _models[self.model] = load_adapter('_unused_', self.model) 
+                _models[self.model] = load_adapter('_unused_', self.model)  ### il par. conf='_unused_' non è utilizzto dalla load_adapter (nn serve più) 
                 self.log.info('==> model <{}> loaded'.format(self.model))
 
             except Exception as e:
@@ -113,7 +113,9 @@ class Connection(object):
 
         print('model/ds = {}/{}'.format(self.model, self.datasource))
 
-        model.init (self.ds_run_settings, ds_global_settings) ### qui posso passare anche dei callable che poi verranno associati alle keys nell'implementazione del model
+        ### qui posso passare anche dei callable che poi verranno associati alle keys nell'implementazione del model
+        ### 
+        model.init (self.ds_run_settings, ds_global_settings) 
 
         #model.registerConnection(ds) ###TBD: new name: load_datasource
         model.load_schema(ds)  

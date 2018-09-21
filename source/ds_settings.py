@@ -74,7 +74,7 @@ _MAPPERS_PATTERN_STYLE_     = 'mappers_pattern_style'
 _DATASET_MAP_FILES_         = 'dataset_map_files'
 _INGEST_MAP_FILES_          = 'ingest_map_files'    # ex _MAPPERS_PATTERN_STYLE_
 
-_CACHE_SIZE_                = 'cache-size'
+_CACHE_SIZE_                = 'cache_size'
 
 '''
 CONSTANT SETTINGS

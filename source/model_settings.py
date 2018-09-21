@@ -14,7 +14,7 @@ _GMATCH_        = 'gmatch'
 _MAPPERS_PATTERN_STYLE_     = 'mappers_pattern_style'
 _VERIFY_SCHEMA_INTEGRITY_   = 'verify_schema_integrity' 
 
-_CACHE_SIZE_                = 'cache-size'
+_CACHE_SIZE_                = 'cache_size'
 
 '''
 CONSTANT SETTINGS

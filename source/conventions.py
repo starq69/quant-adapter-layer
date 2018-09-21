@@ -24,7 +24,7 @@ _MAPPERS_PATTERN_STYLE_     = 'mappers_pattern_style'
 _VERIFY_SCHEMA_INTEGRITY_   = 'verify_schema_integrity' 
 _INGEST_DEFAULT_FILE_PATTERN_ = 'ingest_default_file_pattern'
 
-_CACHE_SIZE_                = 'cache-size'
+_CACHE_SIZE_                = 'cache_size'
 
 '''
 CONSTANT SETTINGS

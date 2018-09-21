@@ -12,9 +12,7 @@ _adapters = {}
 
 def load_adapter(conf, module_name):
     '''
-    N.B.
-    poichè l'adapter ignora l'applicazione è necessario il parametro
-    conf che è la configurazione applicativa ?
+    conf : non utilizzato
     '''
     log = logging.getLogger(__name__)
 
