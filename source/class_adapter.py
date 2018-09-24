@@ -32,7 +32,18 @@ class Connection(object):
 #                ### raise 
 #                sys.exit(1)
 
-            #if 'model_name' in app_config:
+
+            ### 24/09/18 
+            self.log.info('-----------------------------NEW----------------------------')
+            #_app_valid_keys = ds_global_settings.app ### (frozenset)
+            self.log.debug('app_valid_keys are <{}>'.format(ds_global_settings.app))
+            #for key in _app_valid_keys:
+            for key in ds_global_settings.app: ### frozenset 
+                if key in app_config:
+                    ds_global_settings.defaults[key] = app_config[key].strip()
+                    self.log.debug('{} is <{}>'.format(key, ds_global_settings.defaults[key]))
+            self.log.info('----------------------------END-----------------------------')
+            
             if _Keys._MODEL_NAME_ in app_config:
                 #
                 # override default setting

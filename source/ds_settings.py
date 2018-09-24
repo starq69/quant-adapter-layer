@@ -96,6 +96,9 @@ const = (_ACCEPT_CONST_OVERRIDE_,
          _SYM_PARENT_,
          _TIMESTAMP_PARENT_,
         )
+
+# NEW app keys
+app = frozenset([_DATASOURCE_NAME_, _MODEL_NAME_])
 '''
 DEFAULT SETTINGS
 '''
