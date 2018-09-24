@@ -98,7 +98,7 @@ const = (_ACCEPT_CONST_OVERRIDE_,
         )
 
 # NEW app keys
-app = frozenset([_DATASOURCE_NAME_, _MODEL_NAME_])
+app = frozenset([_DATASOURCE_NAME_])
 '''
 DEFAULT SETTINGS
 '''

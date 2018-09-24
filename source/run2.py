@@ -38,8 +38,7 @@ def main():
         sys.exit(1)
 
     try:
-        #with Connection (app_config) as ds:
-        with Connection (dict(app_config.items('GLOBALS'))) as ds:  
+        with Connection (dict(app_config.items('DATA_SOURCE'))) as ds:  ### può essere DATA_SOURCE_A / B / etc.
 
             log.info('connection ready!')
             ds.select('xxx')

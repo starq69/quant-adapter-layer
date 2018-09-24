@@ -3,13 +3,11 @@
 
 import sys, os, logging, configparser
 from loader import load_adapter
-import ds_settings as ds_global_settings
+import ds_settings as settings
 from merge_settings import merge_settings
 
 __all__ = ['Connection']
-
 _models = {}
-
 
 class Connection(object):
 
@@ -19,80 +17,20 @@ class Connection(object):
         func_name       = sys._getframe().f_code.co_name
         self.log.info('==> Running {}()'.format(func_name))
 
-        def load_app_settings (app_config):
-
-            _Keys = ds_global_settings
-
-#            try:
-#                #app_config = dict(app_config.items('GLOBALS'))
-#                for k, v in app_config.items():
-#                    self.log.debug('{} : {}'.format(k,v))
-#            except NoSectionError as e:
-#                self.log.error('No [GLOBAL] section in app configuration file, pls specify one. ABORT')
-#                ### raise 
-#                sys.exit(1)
-
-
-            ### 24/09/18 
-            self.log.info('-----------------------------NEW----------------------------')
-            #_app_valid_keys = ds_global_settings.app ### (frozenset)
-            self.log.debug('app_valid_keys are <{}>'.format(ds_global_settings.app))
-            #for key in _app_valid_keys:
-            for key in ds_global_settings.app: ### frozenset 
-                if key in app_config:
-                    ds_global_settings.defaults[key] = app_config[key].strip()
-                    self.log.debug('{} is <{}>'.format(key, ds_global_settings.defaults[key]))
-            self.log.info('----------------------------END-----------------------------')
-            
-            if _Keys._MODEL_NAME_ in app_config:
-                #
-                # override default setting
-                # 
-                ds_global_settings.defaults[_Keys._MODEL_NAME_] = self.model = app_config[_Keys._MODEL_NAME_].strip()
-                self.log.debug('model is <{}>'.format(self.model))
-            else:
-                self.log.error('No \'model_name\' found in [GLOBAL] section of app configuration file, pls specify one. ABORT')
-                ### raise
-                sys.exit(1)
-
-            #if 'datasource_name' in app_config:
-            if _Keys._DATASOURCE_NAME_ in app_config:
-                #
-                # override default setting
-                #
-                ds_global_settings.defaults[_Keys._DATASOURCE_NAME_] = self.datasource = app_config[_Keys._DATASOURCE_NAME_].strip()
-                self.log.debug('datasource is <{}>'.format(self.datasource))
-            else:
-                self.log.error('No \'datasource_name\' found in [GLOBAL] section of app configuration file, pls specify one. ABORT')
-                ### raise
-                sys.exit(1)
-
-            #
-            #   other parameters from app/session configuration file (for future use)
-            #
-
-            return True
-
-
         base_dir        = os.path.dirname (os.path.realpath(__file__))
         parent_dir      = os.path.split (base_dir)[0] ### essendo cfg_file nella parent dir...
 
-        load_app_settings (app_config)
+        # app configuration
+        #
+        self.log.debug('app_valid_keys are <{}>'.format(settings.app))
+        for key in settings.app: ### frozenset 
+            if key in app_config:
+                settings.defaults[key] = app_config[key].strip()
+                self.log.debug('{} is <{}>'.format(key, settings.defaults[key]))
 
-        if self.model not in _models: 
-            try:
-                _models[self.model] = load_adapter('_unused_', self.model)  ### il par. conf='_unused_' non è utilizzto dalla load_adapter (nn serve più) 
-                self.log.info('==> model <{}> loaded'.format(self.model))
-
-            except Exception as e:
-                self.log.error('fail to load model {} : ABORT'.format(self.model, e))
-                ### raise
-                sys.exit(1)
-        else:
-                self.log.info('==> model <{}> already loaded'.format(self.odel))
-
-
-        self.cfg_file   = parent_dir + '/' + self.datasource + '.ini'
+        # datasource configuration
+        #
+        self.cfg_file   = parent_dir + '/' + settings.defaults[settings._DATASOURCE_NAME_] + '.ini'
         try:                                                                                              
             configured = configparser.ConfigParser () 
 
@@ -101,16 +39,31 @@ class Connection(object):
                 ### raise
                 sys.exit(1)
 
-            self.ds_run_settings = merge_settings (ds_global_settings, configured)
+            self.run_settings = merge_settings (settings, configured)
 
-            self.log.debug('--------self.ds_run_settings.items()-----------------')
-            for k, v in self.ds_run_settings.items(): self.log.debug('[{}] = {}'.format(k, v))
+            self.log.debug('+++++++++++++ self.run_settings.items() +++++++++++++++')
+            for k, v in self.run_settings.items(): self.log.debug('[{}] = {}'.format(k, v))
             self.log.debug('-----------------------------------------------------')
 
         except configparser.Error as e:
             self.log.error ('configparser.Error in Connection() : {} --> ABORT'.format (e))
             sys.exit(1)
 
+        # load model
+        #
+        self.model = self.run_settings[settings._MODEL_NAME_]
+        if self.model not in _models: 
+            try:
+                _models[self.model] = load_adapter('_unused_', self.model)  ### il par. conf='_unused_' (nn serve più) 
+                self.log.info('==> model <{}> loaded'.format(self.model))
+
+            except Exception as e:
+                self.log.error('fail to load model {} : ABORT'.format(self.model, e))
+                ### raise
+                sys.exit(1)
+        else:
+                self.log.info('==> model <{}> already loaded'.format(self.odel))
+        
         self.log.info('<== leave {}()'.format(func_name))
 
 
@@ -119,20 +72,20 @@ class Connection(object):
         func_name = sys._getframe().f_code.co_name
         self.log.info('==> Running {}()'.format(func_name))
 
-        model   = _models[self.model]
-        ds      = self.datasource
+        model           = _models[self.model]
+        self.datasource = self.run_settings[settings._DATASOURCE_NAME_]
 
         print('model/ds = {}/{}'.format(self.model, self.datasource))
 
         ### qui posso passare anche dei callable che poi verranno associati alle keys nell'implementazione del model
         ### 
-        model.init (self.ds_run_settings, ds_global_settings) 
+        model.init (self.run_settings, settings) 
 
         #model.registerConnection(ds) ###TBD: new name: load_datasource
-        model.load_schema(ds)  
+        model.load_schema(self.datasource)  
         '''
-        model.load_index (ds)
-        model.load_cache (ds)
+        model.load_index (self.datasource)
+        model.load_cache (self.datasource)
         '''
         self.log.info('<== leave {}()'.format(func_name))
 
@@ -163,7 +116,7 @@ class Connection(object):
 
         model   = _models[self.model]
 
-        _K_, _V_ = ds_global_settings, self.ds_run_settings
+        _K_, _V_ = settings, self.run_settings
 
         if resource is not None:
             try:

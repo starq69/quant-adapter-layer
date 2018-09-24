@@ -25,15 +25,17 @@ _open_connections = {}
 
 def init (ds_run_settings, ds_global_settings): ###TBD: vedi merge_policy ()
 
-    this.log = logging.getLogger(__name__)
-    func_name = sys._getframe().f_code.co_name
+    this.log    = logging.getLogger(__name__)
+    func_name   = sys._getframe().f_code.co_name
     log.info('>>> Running {}()'.format(func_name))
-
     #for k, v in ds_run_settings.items(): log.debug('[{}] = {}'.format(k, v))
 
-    base_dir   = os.path.dirname (os.path.realpath(__file__))
-    parent_dir = os.path.split (base_dir)[0]
-    cfg_file   = parent_dir + '/ohlcv.ini'
+    base_dir    = os.path.dirname (os.path.realpath(__file__))
+    parent_dir  = os.path.split (base_dir)[0]
+
+    _K_, _V_    = ds_global_settings, ds_run_settings
+
+    cfg_file    = parent_dir + '/' + _V_ [_K_._MODEL_NAME_] + '.ini'
 
     if not this.policy:
 
@@ -44,15 +46,11 @@ def init (ds_run_settings, ds_global_settings): ###TBD: vedi merge_policy ()
                 log.error('missing model configuration file <{}> ... try to load defaults...'.format(cfg_file))
 
             this.policy = merge_settings (model_settings, configured) #, 'MODEL') 
-            log.debug('policy : <{}>'.format(this.policy))
+            log.debug('+++++++++ policy : <{}>'.format(this.policy))
 
         except configparser.Error as e:
             log.error ('configparser.Error in model.init() : {}'.format (e))
             sys.exit(1)
-
-
-    #_V_, _K_ = ds_run_settings, ds_global_settings
-    _K_, _V_ = ds_global_settings, ds_run_settings
 
     if not _V_ [ _K_._DATASOURCE_NAME_ ] in _open_connections:
         _open_connections[ _V_ [ _K_._DATASOURCE_NAME_ ]] = {}
@@ -310,7 +308,7 @@ def load_schema (ds_name):
 
     _open_connections[ ds_name ] ['_SCHEMA_'] = _schema
 
-    #log.debug('ds_schema = {}'.format(_schema)) 
+    log.debug('ds_schema = {}'.format(_schema)) 
     log.info('<<< leave {}()'.format(func_name))                                                          
 
 
@@ -328,6 +326,8 @@ def validate_tables (resource_mappers):
     _tables = {}
     _names  = []
     #_msg    = 'INVALID table definition : '  
+
+    log.debug('validate_tables-->enumerate(resource_mappers) : {}'.format(resource_mappers))
 
     for i, table in enumerate (resource_mappers):
 
